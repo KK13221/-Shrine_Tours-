@@ -1,3 +1,6 @@
+/// REST path segments for the Shrine Tours backend (v1).
+///
+/// **Backend handoff:** See `docs/API_SPECIFICATION.md` for endpoints + expected responses.
 class ApiConstants {
   ApiConstants._();
 

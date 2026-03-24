@@ -111,13 +111,13 @@ class ApiClient {
       case 400:
         throw BadRequestException(message: response.body);
       case 401:
-        throw UnauthorizedException(message: 'Unauthorized access');
+        throw const UnauthorizedException(message: 'Unauthorized access');
       case 403:
-        throw ForbiddenException(message: 'Forbidden');
+        throw const ForbiddenException(message: 'Forbidden');
       case 404:
-        throw NotFoundException(message: 'Resource not found');
+        throw const NotFoundException(message: 'Resource not found');
       case 500:
-        throw ServerException(message: 'Internal server error');
+        throw const ServerException(message: 'Internal server error');
       default:
         throw ApiException(
           message: 'Error ${response.statusCode}: ${response.body}',

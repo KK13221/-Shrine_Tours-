@@ -197,7 +197,8 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
                                   child: Column(
-                                    children: List.generate(category.items.length, (itemIndex) {
+                                    children: [
+                                      ...List.generate(category.items.length, (itemIndex) {
                                       final item = category.items[itemIndex];
                                       return Padding(
                                         padding: const EdgeInsets.only(bottom: 8),
@@ -315,6 +316,7 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
                                         ),
                                       ),
                                     ),
+                                    ],
                                   ),
                                 ),
                             ],
