@@ -36,12 +36,6 @@ class PackingListScreen extends StatelessWidget {
               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
             ),
             centerTitle: true,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none, color: AppColors.textDark),
-                onPressed: () {},
-              ),
-            ],
           ),
           body: Column(
             children: [
@@ -56,23 +50,6 @@ class PackingListScreen extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.flight, size: 16, color: AppColors.textMuted),
-                              const SizedBox(width: 6),
-                              Text('Travel', style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMuted)),
-                            ],
-                          ),
-                        ),
-                      ),
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),

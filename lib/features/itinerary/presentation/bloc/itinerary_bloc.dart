@@ -63,6 +63,13 @@ class ChangeDay extends ItineraryEvent {
   List<Object?> get props => [day];
 }
 
+class AddItinerary extends ItineraryEvent {
+  final Itinerary itinerary;
+  const AddItinerary(this.itinerary);
+  @override
+  List<Object?> get props => [itinerary];
+}
+
 // States
 class ItineraryState extends Equatable {
   final List<Itinerary> itineraries;
@@ -105,9 +112,11 @@ class ItineraryBloc extends Bloc<ItineraryEvent, ItineraryState> {
     on<LoadItineraries>(_onLoad);
     on<SelectItinerary>(_onSelect);
     on<ChangeDay>(_onChangeDay);
+    on<AddItinerary>(_onAdd);
   }
 
   Future<void> _onLoad(LoadItineraries event, Emitter<ItineraryState> emit) async {
+    if (state.itineraries.isNotEmpty) return;
     emit(state.copyWith(isLoading: true));
     await Future.delayed(const Duration(milliseconds: 500));
     emit(state.copyWith(
@@ -158,5 +167,11 @@ class ItineraryBloc extends Bloc<ItineraryEvent, ItineraryState> {
 
   void _onChangeDay(ChangeDay event, Emitter<ItineraryState> emit) {
     emit(state.copyWith(selectedDay: event.day));
+  }
+
+  void _onAdd(AddItinerary event, Emitter<ItineraryState> emit) {
+    emit(state.copyWith(
+      itineraries: [...state.itineraries, event.itinerary],
+    ));
   }
 }

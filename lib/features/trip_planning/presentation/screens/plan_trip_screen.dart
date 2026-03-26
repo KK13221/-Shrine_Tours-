@@ -285,7 +285,16 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
               padding: const EdgeInsets.all(24),
               child: PrimaryButton(
                 text: 'Continue',
-                onPressed: () => context.push('/trip-preferences'),
+                onPressed: () {
+                  final bloc = context.read<TripPlanningBloc>();
+                  if (_cityController.text.isNotEmpty) bloc.add(UpdateDestination(_cityController.text.trim()));
+                  if (_selectedTraveller.isNotEmpty) bloc.add(UpdateTravellerType(_selectedTraveller));
+                  if (_selectedPurpose.isNotEmpty) bloc.add(UpdatePurpose(_selectedPurpose));
+                  if (_startDate != null && _endDate != null) {
+                    bloc.add(UpdateDates(startDate: _startDate!, endDate: _endDate!));
+                  }
+                  context.push('/trip-preferences');
+                },
               ),
             ),
           ],

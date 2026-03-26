@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../bloc/itinerary_bloc.dart';
-
+import '../../../trip_planning/presentation/bloc/trip_planning_bloc.dart';
 class ItineraryViewScreen extends StatelessWidget {
   const ItineraryViewScreen({super.key});
 
@@ -13,6 +13,27 @@ class ItineraryViewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocBuilder<ItineraryBloc, ItineraryState>(
       builder: (context, state) {
+        final planState = context.read<TripPlanningBloc>().state;
+        final city = planState.destination.isEmpty ? 'New Trip' : planState.destination;
+
+        String dateRangeText = 'Pending Dates';
+        if (planState.startDate != null && planState.endDate != null) {
+          final start = planState.startDate!;
+          final end = planState.endDate!;
+          final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          dateRangeText = '${start.day} ${months[start.month - 1]} - ${end.day} ${months[end.month - 1]} ${end.year % 100}';
+        }
+        
+        final adultsStr = '${planState.adults} Adult${planState.adults > 1 ? 's' : ''}';
+        final kidsStr = planState.kids > 0 ? ', ${planState.kids} Kid${planState.kids > 1 ? 's' : ''}' : '';
+        final subtitleText = '$dateRangeText  ($adultsStr$kidsStr)';
+
+        int calculatedDays = 1;
+        if (planState.startDate != null && planState.endDate != null) {
+          calculatedDays = planState.endDate!.difference(planState.startDate!).inDays + 1;
+          if (calculatedDays < 1) calculatedDays = 1;
+        }
+
         return Scaffold(
           backgroundColor: Colors.white,
           body: SafeArea(
@@ -37,7 +58,7 @@ class ItineraryViewScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Itinerary for Bhopal',
+                                    'Itinerary for $city',
                                     style: GoogleFonts.inter(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w700,
@@ -50,7 +71,7 @@ class ItineraryViewScreen extends StatelessWidget {
                               Padding(
                                 padding: const EdgeInsets.only(left: 36),
                                 child: Text(
-                                  '23 Oct - 26 Oct 25  (2 Adults, 1 Kid)',
+                                  subtitleText,
                                   style: GoogleFonts.inter(fontSize: 13, color: AppColors.primaryPink),
                                 ),
                               ),
@@ -291,7 +312,18 @@ class ItineraryViewScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(24),
                   child: PrimaryButton(
                     text: 'Save and Proceed',
-                    onPressed: () => context.push('/packing-list'),
+                    onPressed: () {
+                      final newItinerary = Itinerary(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        city: city,
+                        imageUrl: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400',
+                        dateRange: dateRangeText,
+                        places: planState.selectedPlaces.isNotEmpty ? planState.selectedPlaces.length : 5,
+                        days: calculatedDays,
+                      );
+                      context.read<ItineraryBloc>().add(AddItinerary(newItinerary));
+                      context.push('/packing-list');
+                    },
                   ),
                 ),
               ],

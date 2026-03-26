@@ -4,6 +4,7 @@ import '../../features/auth/presentation/screens/sign_in_screen.dart';
 import '../../features/trip_planning/presentation/screens/plan_trip_screen.dart';
 import '../../features/trip_planning/presentation/screens/trip_preferences_screen.dart';
 import '../../features/trip_planning/presentation/screens/add_places_screen.dart';
+import '../../features/trip_planning/presentation/screens/place_details_screen.dart';
 import '../../features/itinerary/presentation/screens/my_itineraries_screen.dart';
 import '../../features/itinerary/presentation/screens/trip_details_screen.dart';
 import '../../features/itinerary/presentation/screens/itinerary_view_screen.dart';
@@ -50,6 +51,11 @@ class AppRouter {
         path: '/add-places',
         name: 'addPlaces',
         builder: (context, state) => const AddPlacesScreen(),
+      ),
+      GoRoute(
+        path: '/place-details',
+        name: 'placeDetails',
+        builder: (context, state) => const PlaceDetailsScreen(),
       ),
       GoRoute(
         path: '/trip-details',

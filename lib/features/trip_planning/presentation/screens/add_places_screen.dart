@@ -106,7 +106,9 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                         itemCount: _suggestedPlaces.length,
                         itemBuilder: (context, index) {
                           final place = _suggestedPlaces[index];
-                          return Container(
+                          return GestureDetector(
+                            onTap: () => context.push('/place-details'),
+                            child: Container(
                             width: 160,
                             margin: const EdgeInsets.only(right: 12),
                             child: Column(
@@ -138,7 +140,7 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                 ),
                               ],
                             ),
-                          );
+                          ));
                         },
                       ),
                     ),
@@ -157,7 +159,9 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                           const SizedBox(height: 12),
                           ..._allPlaces.map((place) {
                             final isSelected = _selectedPlaces.contains(place['name']);
-                            return Container(
+                            return GestureDetector(
+                              onTap: () => context.push('/place-details'),
+                              child: Container(
                               margin: const EdgeInsets.only(bottom: 12),
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
@@ -256,7 +260,7 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                   ),
                                 ],
                               ),
-                            );
+                            ));
                           }),
                         ],
                       ),
