@@ -38,12 +38,6 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
               style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
             ),
             centerTitle: true,
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none, color: AppColors.textDark),
-                onPressed: () {},
-              ),
-            ],
           ),
           body: Column(
             children: [

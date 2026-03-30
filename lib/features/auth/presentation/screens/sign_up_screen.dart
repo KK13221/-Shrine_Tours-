@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -7,22 +8,26 @@ import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../bloc/auth_bloc.dart';
 
-class SignInScreen extends StatefulWidget {
-  const SignInScreen({super.key});
+class SignUpScreen extends StatefulWidget {
+  const SignUpScreen({super.key});
 
   @override
-  State<SignInScreen> createState() => _SignInScreenState();
+  State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignInScreenState extends State<SignInScreen> {
+class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  
   bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -48,13 +53,13 @@ class _SignInScreenState extends State<SignInScreen> {
               children: [
                 // Back button
                 GestureDetector(
-                  onTap: () => context.go('/'),
+                  onTap: () => context.pop(),
                   child: const Icon(Icons.chevron_left, size: 28, color: AppColors.textDark),
                 ),
                 const SizedBox(height: 24),
-                // Welcome Back
+                // Create Account
                 Text(
-                  'Welcome Back',
+                  'Create Account',
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
@@ -63,13 +68,14 @@ class _SignInScreenState extends State<SignInScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Sign in to continue your journey',
+                  'Sign up to start planning your adventures',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: AppColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 32),
+                
                 // Google Sign In
                 SizedBox(
                   width: double.infinity,
@@ -78,7 +84,14 @@ class _SignInScreenState extends State<SignInScreen> {
                     onPressed: () {
                       context.read<AuthBloc>().add(GoogleSignInRequested());
                     },
-                    icon: const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                    icon: Image.network(
+                      'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
+                      height: 24,
+                      errorBuilder: (context, error, stackTrace) {
+                         // Fallback text icon if network isn't available
+                         return const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700));
+                      },
+                    ),
                     label: Text(
                       'Continue with Google',
                       style: GoogleFonts.inter(
@@ -96,6 +109,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                
                 // Divider with "or"
                 Row(
                   children: [
@@ -111,6 +125,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
+                
                 // Email
                 CustomTextField(
                   label: 'Email',
@@ -120,6 +135,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 20),
+                
                 // Password
                 CustomTextField(
                   label: 'Password',
@@ -132,34 +148,76 @@ class _SignInScreenState extends State<SignInScreen> {
                     setState(() => _obscurePassword = !_obscurePassword);
                   },
                 ),
-                const SizedBox(height: 12),
-                // Forgot Password
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () => context.push('/forgot-password'),
-                    child: Text(
-                      'Forgot Password?',
+                const SizedBox(height: 20),
+                
+                // Confirm Password
+                CustomTextField(
+                  label: 'Confirm Password',
+                  hint: '••••••••',
+                  prefixIcon: Icons.lock_outline,
+                  suffixIcon: _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  obscureText: _obscureConfirmPassword,
+                  controller: _confirmPasswordController,
+                  onSuffixTap: () {
+                    setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                  },
+                ),
+                const SizedBox(height: 24),
+                
+                // Terms and Conditions Text
+                Center(
+                  child: RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
                       style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primaryPink,
+                        fontSize: 13,
+                        color: AppColors.textDark,
                       ),
+                      children: [
+                        const TextSpan(text: 'By signing up, you agree to our '),
+                        TextSpan(
+                          text: 'Terms of Service',
+                          style: GoogleFonts.inter(
+                            color: AppColors.primaryPink,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          recognizer: TapGestureRecognizer()..onTap = () => context.push('/terms'),
+                        ),
+                        const TextSpan(text: ' and\n'),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: GoogleFonts.inter(
+                            color: AppColors.primaryPink,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          recognizer: TapGestureRecognizer()..onTap = () => context.push('/privacy-policy'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Sign In Button
+                
+                // Sign Up Button
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (context, state) {
                     return PrimaryButton(
-                      text: 'Sign In',
+                      text: 'Create Account',
                       isLoading: state is AuthLoading,
                       onPressed: () {
+                        // Validate passwords match before signing up
+                        if (_passwordController.text != _confirmPasswordController.text) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Passwords do not match')),
+                          );
+                          return;
+                        }
+                        
                         context.read<AuthBloc>().add(
-                          SignInRequested(
-                            email: _emailController.text,
+                          SignUpRequested(
+                            email: _emailController.text.trim(),
                             password: _passwordController.text,
+                            name: _emailController.text.split('@').first,
                           ),
                         );
                       },
@@ -167,19 +225,20 @@ class _SignInScreenState extends State<SignInScreen> {
                   },
                 ),
                 const SizedBox(height: 24),
-                // Sign Up link
+                
+                // Sign in link
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "Don't have an account? ",
+                        'Already have an account? ',
                         style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMuted),
                       ),
                       GestureDetector(
-                        onTap: () => context.push('/sign-up'),
+                        onTap: () => context.go('/sign-in'),
                         child: Text(
-                          'Sign Up',
+                          'Sign in',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -190,6 +249,7 @@ class _SignInScreenState extends State<SignInScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),

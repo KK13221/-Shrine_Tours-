@@ -59,6 +59,14 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
     }
   }
 
+  bool get _isFormValid {
+    return _cityController.text.trim().isNotEmpty &&
+        _selectedTraveller.isNotEmpty &&
+        _selectedPurpose.isNotEmpty &&
+        _startDate != null &&
+        _endDate != null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -102,6 +110,7 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _cityController,
+                      onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: 'Enter city name (e.g., Bhopal)',
                         prefixIcon: const Icon(Icons.location_on_outlined, color: AppColors.textMuted),
@@ -285,16 +294,28 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
               padding: const EdgeInsets.all(24),
               child: PrimaryButton(
                 text: 'Continue',
-                onPressed: () {
-                  final bloc = context.read<TripPlanningBloc>();
-                  if (_cityController.text.isNotEmpty) bloc.add(UpdateDestination(_cityController.text.trim()));
-                  if (_selectedTraveller.isNotEmpty) bloc.add(UpdateTravellerType(_selectedTraveller));
-                  if (_selectedPurpose.isNotEmpty) bloc.add(UpdatePurpose(_selectedPurpose));
-                  if (_startDate != null && _endDate != null) {
-                    bloc.add(UpdateDates(startDate: _startDate!, endDate: _endDate!));
-                  }
-                  context.push('/trip-preferences');
-                },
+                onPressed: _isFormValid
+                    ? () {
+                        final bloc = context.read<TripPlanningBloc>();
+                        bloc.add(UpdateDestination(_cityController.text.trim()));
+                        bloc.add(UpdateTravellerType(_selectedTraveller));
+                        
+                        if (_selectedTraveller == 'solo') {
+                          bloc.add(const UpdateAdults(1));
+                          bloc.add(const UpdateKids(0));
+                        } else if (_selectedTraveller == 'couple') {
+                          bloc.add(const UpdateAdults(2));
+                          bloc.add(const UpdateKids(0));
+                        } else {
+                          bloc.add(const UpdateAdults(1));
+                        }
+                        
+                        bloc.add(UpdatePurpose(_selectedPurpose));
+                        bloc.add(UpdateDates(startDate: _startDate!, endDate: _endDate!));
+                        
+                        context.push('/trip-preferences');
+                      }
+                    : null,
               ),
             ),
           ],

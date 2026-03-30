@@ -1,6 +1,9 @@
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/splash_screen.dart';
 import '../../features/auth/presentation/screens/sign_in_screen.dart';
+import '../../features/auth/presentation/screens/sign_up_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../../features/profile/presentation/screens/privacy_policy_screen.dart';
 import '../../features/trip_planning/presentation/screens/plan_trip_screen.dart';
 import '../../features/trip_planning/presentation/screens/trip_preferences_screen.dart';
 import '../../features/trip_planning/presentation/screens/add_places_screen.dart';
@@ -31,6 +34,21 @@ class AppRouter {
         path: '/sign-in',
         name: 'signIn',
         builder: (context, state) => const SignInScreen(),
+      ),
+      GoRoute(
+        path: '/sign-up',
+        name: 'signUp',
+        builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        name: 'forgotPassword',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/privacy-policy',
+        name: 'privacyPolicy',
+        builder: (context, state) => const PrivacyPolicyScreen(),
       ),
       GoRoute(
         path: '/itineraries',

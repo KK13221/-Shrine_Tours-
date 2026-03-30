@@ -82,37 +82,74 @@ class ItineraryViewScreen extends StatelessWidget {
                         // Day Tabs
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Row(
-                            children: List.generate(3, (index) {
-                              final day = index + 1;
-                              final isSelected = state.selectedDay == day;
-                              return Expanded(
-                                child: GestureDetector(
-                                  onTap: () => context.read<ItineraryBloc>().add(ChangeDay(day)),
-                                  child: Container(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: isSelected ? AppColors.primaryPink : Colors.transparent,
-                                          width: 2,
+                          child: calculatedDays <= 3
+                              ? Row(
+                                  children: List.generate(calculatedDays, (index) {
+                                    final day = index + 1;
+                                    final isSelected = state.selectedDay == day;
+                                    return Expanded(
+                                      child: GestureDetector(
+                                        onTap: () => context.read<ItineraryBloc>().add(ChangeDay(day)),
+                                        child: Container(
+                                          padding: const EdgeInsets.only(bottom: 12),
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: isSelected ? AppColors.primaryPink : Colors.transparent,
+                                                width: 2,
+                                              ),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Day $day',
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 15,
+                                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                              color: isSelected ? AppColors.textDark : AppColors.textMuted,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    child: Text(
-                                      'Day $day',
-                                      textAlign: TextAlign.center,
+                                    );
+                                  }),
+                                )
+                              : Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                  margin: const EdgeInsets.symmetric(vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.backgroundGrey,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppColors.cardBorder),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<int>(
+                                      value: state.selectedDay > 0 && state.selectedDay <= calculatedDays
+                                          ? state.selectedDay
+                                          : 1,
+                                      isExpanded: true,
+                                      icon: const Icon(Icons.arrow_drop_down, color: AppColors.textMuted, size: 24),
                                       style: GoogleFonts.inter(
-                                        fontSize: 15,
-                                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                                        color: isSelected ? AppColors.textDark : AppColors.textMuted,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textDark,
                                       ),
+                                      onChanged: (int? newValue) {
+                                        if (newValue != null) {
+                                          context.read<ItineraryBloc>().add(ChangeDay(newValue));
+                                        }
+                                      },
+                                      items: List.generate(calculatedDays, (index) {
+                                        final day = index + 1;
+                                        return DropdownMenuItem<int>(
+                                          value: day,
+                                          child: Text('Day $day Itinerary'),
+                                        );
+                                      }),
                                     ),
                                   ),
                                 ),
-                              );
-                            }),
-                          ),
                         ),
 
                         // Map placeholder
