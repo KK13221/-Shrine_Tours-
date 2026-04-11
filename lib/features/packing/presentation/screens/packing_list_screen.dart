@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../trip_planning/presentation/bloc/trip_planning_bloc.dart';
 import '../bloc/packing_bloc.dart';
 
 class PackingListScreen extends StatelessWidget {
@@ -20,7 +21,27 @@ class PackingListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<PackingBloc, PackingState>(
+    return BlocConsumer<PackingBloc, PackingState>(
+      listener: (context, state) {
+        if (state.submitSuccess == true) {
+          context.push('/checking-packing');
+        } else if (state.submitSuccess == false && state.errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                state.errorMessage!,
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            ),
+          );
+        }
+      },
       builder: (context, state) {
         return Scaffold(
           backgroundColor: Colors.white,
@@ -28,12 +49,16 @@ class PackingListScreen extends StatelessWidget {
             backgroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.chevron_left, size: 28, color: AppColors.textDark),
+              icon: const Icon(Icons.chevron_left,
+                  size: 28, color: AppColors.textDark),
               onPressed: () => context.pop(),
             ),
             title: Text(
               'Packing List',
-              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
+              style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark),
             ),
             centerTitle: true,
           ),
@@ -41,7 +66,8 @@ class PackingListScreen extends StatelessWidget {
             children: [
               // Travel / Vacation tabs
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -57,13 +83,18 @@ class PackingListScreen extends StatelessWidget {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
+                              BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 4),
                             ],
                           ),
                           child: Text(
                             'Vacation',
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                            style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textDark),
                           ),
                         ),
                       ),
@@ -91,24 +122,28 @@ class PackingListScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       ..._transportModes.map((mode) {
-                        final isSelected = state.selectedTransports.contains(mode['label']);
+                        final isSelected =
+                            state.selectedTransports.contains(mode['label']);
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: GestureDetector(
                             onTap: () => context.read<PackingBloc>().add(
-                              ToggleTransportMode(mode['label'] as String),
-                            ),
+                                  ToggleTransportMode(mode['label'] as String),
+                                ),
                             child: Row(
                               children: [
                                 Container(
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: isSelected ? AppColors.textDark : AppColors.textDark,
+                                    color: isSelected
+                                        ? AppColors.textDark
+                                        : AppColors.textDark,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: isSelected
-                                      ? const Icon(Icons.check, color: Colors.white, size: 18)
+                                      ? const Icon(Icons.check,
+                                          color: Colors.white, size: 18)
                                       : null,
                                 ),
                                 const SizedBox(width: 16),
@@ -133,11 +168,31 @@ class PackingListScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.all(24),
                 child: PrimaryButton(
-                  text: 'Next',
-                  onPressed: () {
-                    context.read<PackingBloc>().add(LoadPackingList());
-                    context.push('/checking-packing');
-                  },
+                  text: state.isSubmitting ? 'Submitting...' : 'Next',
+                  onPressed: state.isSubmitting
+                      ? null
+                      : () {
+                          final tripPlanState =
+                              context.read<TripPlanningBloc>().state;
+                          final tripId = tripPlanState.createdTrip?.id ?? '';
+
+                          if (tripId.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Trip ID not found.')),
+                            );
+                            return;
+                          }
+
+                          context.read<PackingBloc>().add(
+                                SubmitTransportsRequested(
+                                  tripId: tripId,
+                                  transports: state.selectedTransports,
+                                ),
+                              );
+
+                          //context.push('/checking-packing');
+                        },
                 ),
               ),
             ],

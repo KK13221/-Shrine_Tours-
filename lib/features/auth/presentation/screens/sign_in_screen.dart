@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -18,6 +19,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  final _googleSignIn = GoogleSignIn();
 
   @override
   void dispose() {
@@ -26,11 +28,33 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return; // User cancelled
+      
+      final email = googleUser.email;
+      final name = googleUser.displayName ?? '';
+      
+      if (mounted) {
+        context.read<AuthBloc>().add(
+          GoogleSignInRequested(email: email, name: name),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google sign-in failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthSuccess) {
+        if (state is AuthAuthenticated) {
           context.go('/itineraries');
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -39,7 +63,7 @@ class _SignInScreenState extends State<SignInScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -58,7 +82,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -66,7 +90,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   'Sign in to continue your journey',
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -75,16 +99,14 @@ class _SignInScreenState extends State<SignInScreen> {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      context.read<AuthBloc>().add(GoogleSignInRequested());
-                    },
+                    onPressed: _handleGoogleSignIn,
                     icon: const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                     label: Text(
                       'Continue with Google',
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textDark,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(

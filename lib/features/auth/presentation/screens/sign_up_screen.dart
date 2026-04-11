@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -16,26 +17,54 @@ class SignUpScreen extends StatefulWidget {
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  final _googleSignIn = GoogleSignIn();
   
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+    Future<void> _handleGoogleSignIn() async {
+    try {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return; // User cancelled
+      
+      final email = googleUser.email;
+      final name = googleUser.displayName ?? '';
+      
+      if (mounted) {
+        context.read<AuthBloc>().add(
+          GoogleSignInRequested(email: email, name: name),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google sign-in failed: $e')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthSuccess) {
+        if (state is AuthAuthenticated) {
           context.go('/itineraries');
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -44,7 +73,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -63,7 +92,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -71,7 +100,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   'Sign up to start planning your adventures',
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: AppColors.textMuted,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -81,9 +110,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton.icon(
-                    onPressed: () {
-                      context.read<AuthBloc>().add(GoogleSignInRequested());
-                    },
+                    onPressed: _handleGoogleSignIn,
                     icon: Image.network(
                       'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
                       height: 24,
@@ -97,7 +124,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textDark,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -126,6 +153,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 24),
                 
+                // Name
+                CustomTextField(
+                  label: 'Name',
+                  hint: 'John Doe',
+                  prefixIcon: Icons.person_outline,
+                  controller: _nameController,
+                  keyboardType: TextInputType.name,
+                ),
+                const SizedBox(height: 20),
+                
                 // Email
                 CustomTextField(
                   label: 'Email',
@@ -133,6 +170,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   prefixIcon: Icons.mail_outline,
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+                
+                // Phone
+                CustomTextField(
+                  label: 'Phone',
+                  hint: 'Your phone number',
+                  prefixIcon: Icons.phone_outlined,
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 20),
                 
@@ -171,7 +218,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     text: TextSpan(
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: AppColors.textDark,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                       children: [
                         const TextSpan(text: 'By signing up, you agree to our '),
@@ -215,9 +262,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         
                         context.read<AuthBloc>().add(
                           SignUpRequested(
+                            name: _nameController.text.trim(),
                             email: _emailController.text.trim(),
+                            phone: _phoneController.text.trim(),
                             password: _passwordController.text,
-                            name: _emailController.text.split('@').first,
                           ),
                         );
                       },
@@ -233,7 +281,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMuted),
+                        style: GoogleFonts.inter(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
                       ),
                       GestureDetector(
                         onTap: () => context.go('/sign-in'),

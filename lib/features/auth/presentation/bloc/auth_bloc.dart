@@ -1,5 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shrine_tours/core/di/injection.dart';
+import 'package:shrine_tours/features/auth/data/model/user.dart';
+import 'package:shrine_tours/features/auth/domain/repositories/auth_repository.dart';
+import 'package:shrine_tours/features/auth/domain/repositories/token_storage_repo.dart';
 
 // Events
 abstract class AuthEvent extends Equatable {
@@ -7,6 +11,8 @@ abstract class AuthEvent extends Equatable {
   @override
   List<Object?> get props => [];
 }
+
+class AppStarted extends AuthEvent {}
 
 class SignInRequested extends AuthEvent {
   final String email;
@@ -16,15 +22,22 @@ class SignInRequested extends AuthEvent {
   List<Object?> get props => [email, password];
 }
 
-class GoogleSignInRequested extends AuthEvent {}
+class GoogleSignInRequested extends AuthEvent {
+  final String email;
+  final String name;
+  const GoogleSignInRequested({required this.email, required this.name});
+  @override
+  List<Object?> get props => [email, name];
+}
 
 class SignUpRequested extends AuthEvent {
-  final String email;
-  final String password;
   final String name;
-  const SignUpRequested({required this.email, required this.password, required this.name});
+  final String email;
+  final String phone;
+  final String password;
+  const SignUpRequested({required this.name, required this.email, required this.phone, required this.password});
   @override
-  List<Object?> get props => [email, password, name];
+  List<Object?> get props => [name, email, phone, password];
 }
 
 class SignOutRequested extends AuthEvent {}
@@ -40,13 +53,15 @@ class AuthInitial extends AuthState {}
 
 class AuthLoading extends AuthState {}
 
-class AuthSuccess extends AuthState {
-  final String userName;
-  final String email;
-  const AuthSuccess({required this.userName, required this.email});
+class AuthAuthenticated extends AuthState {
+  final User user;
+  const AuthAuthenticated({required this.user,});
   @override
-  List<Object?> get props => [userName, email];
+  List<Object?> get props => [user];
 }
+
+class AuthUnauthenticated extends AuthState {}
+
 
 class AuthError extends AuthState {
   final String message;
@@ -57,37 +72,78 @@ class AuthError extends AuthState {
 
 // BLoC
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc() : super(AuthInitial()) {
+
+  final AuthRepository _repository;
+  final _storage = getIt<TokenStorageRepo>();
+
+  AuthBloc({required AuthRepository repository}) :
+        _repository = repository,  super(AuthInitial()) {
     on<SignInRequested>(_onSignIn);
     on<GoogleSignInRequested>(_onGoogleSignIn);
     on<SignUpRequested>(_onSignUp);
     on<SignOutRequested>(_onSignOut);
+    on<AppStarted>(_onAppStarted);
   }
 
   Future<void> _onSignIn(SignInRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    await Future.delayed(const Duration(seconds: 1));
-    // Mock authentication
-    if (event.email.isNotEmpty && event.password.isNotEmpty) {
-      emit(const AuthSuccess(userName: 'John Doe', email: 'john.doe@example.com'));
-    } else {
-      emit(const AuthError(message: 'Please enter valid credentials'));
-    }
+    final result = await _repository.signIn(
+      email: event.email,
+      password: event.password,
+    );
+    
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) => emit(AuthAuthenticated(user: user)),
+    );
   }
 
   Future<void> _onGoogleSignIn(GoogleSignInRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    await Future.delayed(const Duration(seconds: 1));
-    emit(const AuthSuccess(userName: 'John Doe', email: 'john.doe@example.com'));
+    final result = await _repository.googleSignIn(
+      email: event.email,
+      name: event.name,
+    );
+    
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) => emit(AuthAuthenticated(user: user)),
+    );
   }
 
   Future<void> _onSignUp(SignUpRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
-    await Future.delayed(const Duration(seconds: 1));
-    emit(AuthSuccess(userName: event.name, email: event.email));
+    final result = await _repository.signUp(
+      name: event.name,
+      email: event.email,
+      phone: event.phone,
+      password: event.password,
+    );
+    
+    result.fold(
+      (failure) => emit(AuthError(message: failure.message)),
+      (user) => emit(AuthAuthenticated(user: user)),
+    );
   }
 
   Future<void> _onSignOut(SignOutRequested event, Emitter<AuthState> emit) async {
-    emit(AuthInitial());
+    await _storage.clearPreferences();
+    emit(AuthUnauthenticated());
+  }
+
+  // SPLASH
+    Future<void> _onAppStarted(
+    AppStarted event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(AuthLoading());
+ 
+    final user = await _repository.restoreSession();
+ 
+    if (user != null) {
+      emit(AuthAuthenticated(user: user));
+    } else {
+      emit(AuthUnauthenticated());
+    }
   }
 }

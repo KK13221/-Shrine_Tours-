@@ -11,7 +11,44 @@ class TripPreferencesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<TripPlanningBloc, TripPlanningState>(
+    return BlocConsumer<TripPlanningBloc, TripPlanningState>(
+      listenWhen: (previous, current) => previous.createdTrip != current.createdTrip || previous.creationErrorMessage != current.creationErrorMessage,
+      listener: (context, state) {
+        if (state.creationErrorMessage != null && state.creationErrorMessage!.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                state.creationErrorMessage!,
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
+        if (state.createdTrip != null && !state.isGenerating) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                state.editingTripId != null 
+                    ? 'Trip updated successfully! ✨'
+                    : 'Trip created successfully! ✨',
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+              backgroundColor: Colors.green.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          Future.microtask(() => context.push('/add-places'));
+        }
+      },
       builder: (context, state) {
         return Scaffold(
           backgroundColor: Colors.white,
@@ -33,20 +70,22 @@ class TripPreferencesScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Goa',
-                              style: GoogleFonts.inter(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textDark,
-                              ),
+                            state.destination.isNotEmpty ? state.destination : 'Your destination',
+                            style: GoogleFonts.inter(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 36),
-                          child: Text(
-                            'Dec 5, 25 - Dec 9, 25',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 36),
+                        child: Text(
+                          state.startDate != null && state.endDate != null
+                              ? '${state.startDate!.month}/${state.startDate!.day}/${state.startDate!.year} - ${state.endDate!.month}/${state.endDate!.day}/${state.endDate!.year}'
+                              : 'Select travel dates',
                             style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMuted),
                           ),
                         ),
@@ -109,12 +148,13 @@ class TripPreferencesScreen extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.all(24),
                   child: PrimaryButton(
-                    text: 'Generate ✨',
+                    text: state.editingTripId != null ? 'Update ✨' : 'Generate ✨',
                     isLoading: state.isGenerating,
-                    onPressed: () {
-                      context.read<TripPlanningBloc>().add(GenerateItinerary());
-                      context.push('/add-places');
-                    },
+                    onPressed: state.isGenerating
+                        ? null
+                        : () {
+                            context.read<TripPlanningBloc>().add(GenerateItinerary());
+                          },
                   ),
                 ),
               ],

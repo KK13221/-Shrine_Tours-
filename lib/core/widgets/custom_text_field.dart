@@ -39,7 +39,7 @@ class CustomTextField extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppColors.darkNavy,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -52,7 +52,7 @@ class CustomTextField extends StatelessWidget {
           onChanged: onChanged,
           style: GoogleFonts.inter(
             fontSize: 14,
-            color: AppColors.textDark,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           decoration: InputDecoration(
             hintText: hint,

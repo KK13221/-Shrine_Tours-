@@ -1,29 +1,13 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shrine_tours/features/trip_planning/data/model/trips.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/delete_trip_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/get_trips_usecase.dart';
 
-// Models
-class Itinerary {
-  final String id;
-  final String city;
-  final String imageUrl;
-  final String dateRange;
-  final int places;
-  final int days;
-  final int adults;
-  final int kids;
-
-  const Itinerary({
-    required this.id,
-    required this.city,
-    required this.imageUrl,
-    required this.dateRange,
-    required this.places,
-    required this.days,
-    this.adults = 2,
-    this.kids = 1,
-  });
-}
-
+// Models - moved to data/model/trips.dart
+// Keeping Activity model here as it's still used for itinerary details
 class Activity {
   final String time;
   final String title;
@@ -64,103 +48,161 @@ class ChangeDay extends ItineraryEvent {
 }
 
 class AddItinerary extends ItineraryEvent {
-  final Itinerary itinerary;
+  final Trips itinerary;
   const AddItinerary(this.itinerary);
   @override
   List<Object?> get props => [itinerary];
 }
 
+class DeleteItinerary extends ItineraryEvent {
+  final String id;
+  final Completer<bool> completer;
+
+  const DeleteItinerary(this.id, this.completer);
+
+  @override
+  List<Object?> get props => [id];
+}
+
 // States
 class ItineraryState extends Equatable {
-  final List<Itinerary> itineraries;
-  final Itinerary? selectedItinerary;
+  final List<Trips> trips;
+  final Trips? selectedTrip;
   final int selectedDay;
   final List<Activity> activities;
   final bool isLoading;
+  final String? error;
 
   const ItineraryState({
-    this.itineraries = const [],
-    this.selectedItinerary,
+    this.trips = const [],
+    this.selectedTrip,
     this.selectedDay = 1,
     this.activities = const [],
     this.isLoading = false,
+    this.error,
   });
 
   ItineraryState copyWith({
-    List<Itinerary>? itineraries,
-    Itinerary? selectedItinerary,
+    List<Trips>? trips,
+    Trips? selectedTrip,
     int? selectedDay,
     List<Activity>? activities,
     bool? isLoading,
+    String? error,
   }) {
     return ItineraryState(
-      itineraries: itineraries ?? this.itineraries,
-      selectedItinerary: selectedItinerary ?? this.selectedItinerary,
+      trips: trips ?? this.trips,
+      selectedTrip: selectedTrip ?? this.selectedTrip,
       selectedDay: selectedDay ?? this.selectedDay,
       activities: activities ?? this.activities,
       isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
     );
   }
 
   @override
-  List<Object?> get props => [itineraries, selectedItinerary, selectedDay, activities, isLoading];
+  List<Object?> get props =>
+      [trips, selectedTrip, selectedDay, activities, isLoading, error];
 }
 
 // BLoC
 class ItineraryBloc extends Bloc<ItineraryEvent, ItineraryState> {
-  ItineraryBloc() : super(const ItineraryState()) {
+  final GetTripsUseCase _getTripsUseCase;
+  final DeleteTripUseCase _deleteTripUseCase;
+
+  ItineraryBloc(this._getTripsUseCase, this._deleteTripUseCase)
+      : super(const ItineraryState()) {
     on<LoadItineraries>(_onLoad);
     on<SelectItinerary>(_onSelect);
     on<ChangeDay>(_onChangeDay);
     on<AddItinerary>(_onAdd);
+    on<DeleteItinerary>(_onDelete);
   }
 
-  Future<void> _onLoad(LoadItineraries event, Emitter<ItineraryState> emit) async {
-    if (state.itineraries.isNotEmpty) return;
-    emit(state.copyWith(isLoading: true));
-    await Future.delayed(const Duration(milliseconds: 500));
-    emit(state.copyWith(
-      isLoading: false,
-      itineraries: const [
-        Itinerary(
-          id: '1',
-          city: 'Bhopal',
-          imageUrl: 'https://images.unsplash.com/photo-1585135497273-1a86d1e5d4a4?w=400',
-          dateRange: '23 Oct 25 - 26 Oct 25',
-          places: 5,
-          days: 3,
-        ),
-        Itinerary(
-          id: '2',
-          city: 'Jaipur',
-          imageUrl: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=400',
-          dateRange: '10 Nov 25 - 13 Nov 25',
-          places: 8,
-          days: 3,
-        ),
-        Itinerary(
-          id: '3',
-          city: 'Goa',
-          imageUrl: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=400',
-          dateRange: '5 Dec 25 - 9 Dec 25',
-          places: 6,
-          days: 4,
-        ),
-      ],
-    ));
+  Future<void> _onDelete(
+      DeleteItinerary event, Emitter<ItineraryState> emit) async {
+    emit(state.copyWith(error: null));
+
+    final result = await _deleteTripUseCase.call(event.id);
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(error: failure.message));
+        event.completer.complete(false);
+      },
+      (_) {
+        final updatedTrips =
+            List<Trips>.from(state.trips.where((trip) => trip.id != event.id));
+        emit(state.copyWith(
+          trips: updatedTrips,
+          selectedTrip:
+              state.selectedTrip?.id == event.id ? null : state.selectedTrip,
+          error: null,
+        ));
+        event.completer.complete(true);
+      },
+    );
+  }
+
+  Future<void> _onLoad(
+      LoadItineraries event, Emitter<ItineraryState> emit) async {
+    emit(state.copyWith(isLoading: true, error: null));
+
+    final result = await _getTripsUseCase.call();
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(
+          isLoading: false,
+          error: failure.message,
+        ));
+      },
+      (trips) {
+        emit(state.copyWith(
+          isLoading: false,
+          trips: trips,
+          error: null,
+        ));
+      },
+    );
   }
 
   void _onSelect(SelectItinerary event, Emitter<ItineraryState> emit) {
-    final itinerary = state.itineraries.firstWhere((i) => i.id == event.id);
+    final trip = state.trips.firstWhere((t) => t.id == event.id);
     emit(state.copyWith(
-      selectedItinerary: itinerary,
+      selectedTrip: trip,
       selectedDay: 1,
       activities: const [
-        Activity(time: '10:00', title: 'Start from Hotel', duration: '30 min', cost: 2500, icon: 'car'),
-        Activity(time: '10:30', title: 'Enjoy the wild at Van Vihar', duration: '3 hr', cost: 50, icon: 'explore'),
-        Activity(time: '13:30', title: 'Lunch at Lake View', duration: '1 hr', cost: 800, icon: 'restaurant'),
-        Activity(time: '15:00', title: 'Visit Sanchi Stupa', duration: '2 hr', cost: 100, icon: 'temple'),
-        Activity(time: '17:30', title: 'Evening at Upper Lake', duration: '1.5 hr', cost: 0, icon: 'water'),
+        Activity(
+            time: '10:00',
+            title: 'Start from Hotel',
+            duration: '30 min',
+            cost: 2500,
+            icon: 'car'),
+        Activity(
+            time: '10:30',
+            title: 'Enjoy the wild at Van Vihar',
+            duration: '3 hr',
+            cost: 50,
+            icon: 'explore'),
+        Activity(
+            time: '13:30',
+            title: 'Lunch at Lake View',
+            duration: '1 hr',
+            cost: 800,
+            icon: 'restaurant'),
+        Activity(
+            time: '15:00',
+            title: 'Visit Sanchi Stupa',
+            duration: '2 hr',
+            cost: 100,
+            icon: 'temple'),
+        Activity(
+            time: '17:30',
+            title: 'Evening at Upper Lake',
+            duration: '1.5 hr',
+            cost: 0,
+            icon: 'water'),
       ],
     ));
   }
@@ -171,7 +213,7 @@ class ItineraryBloc extends Bloc<ItineraryEvent, ItineraryState> {
 
   void _onAdd(AddItinerary event, Emitter<ItineraryState> emit) {
     emit(state.copyWith(
-      itineraries: [...state.itineraries, event.itinerary],
+      trips: [...state.trips, event.itinerary],
     ));
   }
 }

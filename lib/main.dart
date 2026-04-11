@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shrine_tours/features/profile/presentation/bloc/payment_method_bloc.dart';
 import 'core/di/injection.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -9,9 +10,9 @@ import 'features/packing/presentation/bloc/packing_bloc.dart';
 import 'features/profile/presentation/bloc/profile_bloc.dart';
 import 'features/trip_planning/presentation/bloc/trip_planning_bloc.dart';
 
-void main() {
+void main() async{
   WidgetsFlutterBinding.ensureInitialized();
-  setupDependencies();
+  await setupDependencies();
   runApp(const ShrineTours());
 }
 
@@ -27,11 +28,14 @@ class ShrineTours extends StatelessWidget {
         BlocProvider(create: (_) => getIt<ItineraryBloc>()),
         BlocProvider(create: (_) => getIt<PackingBloc>()),
         BlocProvider(create: (_) => getIt<ProfileBloc>()),
+        BlocProvider(create: (_) => getIt<PaymentMethodBloc>()),
       ],
       child: MaterialApp.router(
         title: 'ShrineTours',
         debugShowCheckedModeBanner: false,
+        darkTheme: AppTheme.darkTheme,
         theme: AppTheme.lightTheme,
+        themeMode: ThemeMode.light,
         routerConfig: AppRouter.router,
       ),
     );

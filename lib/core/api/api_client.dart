@@ -1,130 +1,252 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'api_constants.dart';
+import 'package:dio/dio.dart';
 import 'api_exceptions.dart';
+import 'dio_config.dart';
 
 class ApiClient {
-  final http.Client _client;
-  final String _baseUrl;
+  late final Dio _dio;
 
-  ApiClient({
-    http.Client? client,
-    String? baseUrl,
-  })  : _client = client ?? http.Client(),
-        _baseUrl = baseUrl ?? ApiConstants.baseUrl;
+  ApiClient({Dio? dio}) {
+    _dio = dio ?? DioConfig.createDio();
+  }
 
-  // GET request
+  /// GET request
   Future<dynamic> get(
     String endpoint, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParams,
   }) async {
-    final uri = _buildUri(endpoint, queryParams);
     try {
-      final response = await _client.get(uri, headers: _buildHeaders(headers));
+      final response = await _dio.get(
+        endpoint,
+        queryParameters: queryParams,
+        options: Options(headers: headers),
+      );
       return _handleResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
     } catch (e) {
       throw ApiException(message: 'GET $endpoint failed: $e');
     }
   }
 
-  // POST request
+  /// POST request
   Future<dynamic> post(
     String endpoint, {
     Map<String, String>? headers,
     dynamic body,
   }) async {
-    final uri = _buildUri(endpoint);
     try {
-      final response = await _client.post(
-        uri,
-        headers: _buildHeaders(headers),
-        body: jsonEncode(body),
+      final response = await _dio.post(
+        endpoint,
+        data: body,
+        options: Options(headers: headers),
       );
       return _handleResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
     } catch (e) {
       throw ApiException(message: 'POST $endpoint failed: $e');
     }
   }
 
-  // PUT request
+  /// PUT request
   Future<dynamic> put(
     String endpoint, {
     Map<String, String>? headers,
     dynamic body,
   }) async {
-    final uri = _buildUri(endpoint);
     try {
-      final response = await _client.put(
-        uri,
-        headers: _buildHeaders(headers),
-        body: jsonEncode(body),
+      final response = await _dio.put(
+        endpoint,
+        data: body,
+        options: Options(headers: headers),
       );
       return _handleResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
     } catch (e) {
       throw ApiException(message: 'PUT $endpoint failed: $e');
     }
   }
 
-  // DELETE request
+  /// DELETE request
   Future<dynamic> delete(
     String endpoint, {
     Map<String, String>? headers,
   }) async {
-    final uri = _buildUri(endpoint);
     try {
-      final response = await _client.delete(uri, headers: _buildHeaders(headers));
+      final response = await _dio.delete(
+        endpoint,
+        options: Options(headers: headers),
+      );
       return _handleResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
     } catch (e) {
       throw ApiException(message: 'DELETE $endpoint failed: $e');
     }
   }
 
-  // Build URI with query parameters
-  Uri _buildUri(String endpoint, [Map<String, dynamic>? queryParams]) {
-    final uri = Uri.parse('$_baseUrl$endpoint');
-    if (queryParams != null && queryParams.isNotEmpty) {
-      return uri.replace(
-        queryParameters: queryParams.map((k, v) => MapEntry(k, v.toString())),
+  /// Multipart upload request
+  Future<dynamic> uploadFile(
+    String endpoint, {
+    Map<String, String>? headers,
+    required String fieldName,
+    required dynamic file,
+    Map<String, dynamic>? additionalFields,
+  }) async {
+    try {
+      final formData = FormData();
+
+      // Add the file
+      if (file is MultipartFile) {
+        formData.files.add(MapEntry(fieldName, file));
+      } else if (file is String) {
+        // Assume it's a file path
+        formData.files.add(MapEntry(
+          fieldName,
+          await MultipartFile.fromFile(file),
+        ));
+      }
+
+      // Add additional fields if any
+      if (additionalFields != null) {
+        formData.fields.addAll(additionalFields.entries.map(
+          (e) => MapEntry(e.key, e.value.toString()),
+        ));
+      }
+
+      final response = await _dio.post(
+        endpoint,
+        data: formData,
+        options: Options(headers: headers),
       );
+      return _handleResponse(response);
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      throw ApiException(message: 'UPLOAD $endpoint failed: $e');
     }
-    return uri;
   }
 
-  // Build headers with auth token
-  Map<String, String> _buildHeaders(Map<String, String>? extra) {
-    final headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-    if (extra != null) headers.addAll(extra);
-    return headers;
+  /// Download file request
+  Future<dynamic> downloadFile(
+    String endpoint,
+    String savePath, {
+    Map<String, String>? headers,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    try {
+      final response = await _dio.download(
+        endpoint,
+        savePath,
+        options: Options(headers: headers),
+        onReceiveProgress: onReceiveProgress,
+      );
+      return response;
+    } on DioException catch (e) {
+      throw _handleDioException(e);
+    } catch (e) {
+      throw ApiException(message: 'DOWNLOAD $endpoint failed: $e');
+    }
   }
 
-  // Handle HTTP response
-  dynamic _handleResponse(http.Response response) {
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        if (response.body.isEmpty) return null;
-        return jsonDecode(response.body);
-      case 400:
-        throw BadRequestException(message: response.body);
-      case 401:
-        throw const UnauthorizedException(message: 'Unauthorized access');
-      case 403:
-        throw const ForbiddenException(message: 'Forbidden');
-      case 404:
-        throw const NotFoundException(message: 'Resource not found');
-      case 500:
-        throw const ServerException(message: 'Internal server error');
-      default:
-        throw ApiException(
-          message: 'Error ${response.statusCode}: ${response.body}',
-          statusCode: response.statusCode,
+  /// Handle successful HTTP response
+  dynamic _handleResponse(Response response) {
+    final statusCode = response.statusCode ?? 200;
+
+    if (statusCode == 200 || statusCode == 201) {
+      if (response.data == null || (response.data as dynamic)?.isEmpty == true) {
+        return null;
+      }
+      return response.data;
+    }
+
+    // This should rarely happen due to DioException handling
+    throw ApiException(
+      message: 'Unexpected status code: $statusCode',
+      statusCode: statusCode,
+    );
+  }
+
+  /// Convert DioException to ApiException
+  ApiException _handleDioException(DioException dioException) {
+    final statusCode = dioException.response?.statusCode;
+    final responseData = dioException.response?.data;
+
+    // Extract error message from response if available
+    String errorMessage = _extractErrorMessage(responseData);
+
+    switch (dioException.type) {
+      case DioExceptionType.connectionTimeout:
+        return TimeoutException(message: 'Connection timeout: $errorMessage');
+
+      case DioExceptionType.sendTimeout:
+        return TimeoutException(message: 'Send timeout: $errorMessage');
+
+      case DioExceptionType.receiveTimeout:
+        return TimeoutException(message: 'Receive timeout: $errorMessage');
+
+      case DioExceptionType.badResponse:
+        // Handle different HTTP status codes
+        switch (statusCode) {
+          case 400:
+            return BadRequestException(message: errorMessage);
+          case 401:
+            return UnauthorizedException(message: errorMessage);
+          case 403:
+            return ForbiddenException(message: errorMessage);
+          case 404:
+            return NotFoundException(message: errorMessage);
+          case 500:
+            return ServerException(message: errorMessage);
+          default:
+            return ApiException(
+              message: 'HTTP Error: $errorMessage',
+              statusCode: statusCode,
+            );
+        }
+
+      case DioExceptionType.connectionError:
+        return NetworkException(message: 'Network error: ${dioException.message}');
+
+      case DioExceptionType.cancel:
+        return ApiException(message: 'Request cancelled');
+
+      case DioExceptionType.badCertificate:
+        return NetworkException(message: 'Bad certificate: ${dioException.message}');
+
+      case DioExceptionType.unknown:
+        return NetworkException(
+          message: 'Unknown error: ${dioException.message}',
         );
     }
   }
 
-  void dispose() => _client.close();
+  /// Extract error message from response data
+  String _extractErrorMessage(dynamic responseData) {
+    try {
+      if (responseData is Map<String, dynamic>) {
+        // Try common error message field names
+        if (responseData.containsKey('message')) {
+          return responseData['message'] as String? ?? 'An error occurred';
+        }
+        if (responseData.containsKey('error')) {
+          return responseData['error'] as String? ?? 'An error occurred';
+        }
+        if (responseData.containsKey('detail')) {
+          return responseData['detail'] as String? ?? 'An error occurred';
+        }
+      }
+      if (responseData is String) {
+        return responseData;
+      }
+    } catch (e) {
+      // Fallback if parsing fails
+    }
+    return 'An error occurred';
+  }
+
+  /// Close and cleanup
+  void dispose() => _dio.close();
 }

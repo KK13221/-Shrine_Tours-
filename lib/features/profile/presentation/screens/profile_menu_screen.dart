@@ -1,9 +1,15 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shrine_tours/core/di/injection.dart';
+import 'package:shrine_tours/features/auth/domain/repositories/token_storage_repo.dart';
+import 'package:shrine_tours/features/auth/presentation/bloc/auth_bloc.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../bloc/profile_bloc.dart';
+import 'subscription_bill_sheet.dart';
 
 class ProfileMenuScreen extends StatefulWidget {
   const ProfileMenuScreen({super.key});
@@ -53,14 +59,16 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                       width: 56,
                       height: 56,
                       decoration: const BoxDecoration(
-                        color: AppColors.primaryPink,
                         shape: BoxShape.circle,
+                        color: Colors.pinkAccent, // Placeholder background color
                       ),
-                      child: Center(
-                        child: Text(
-                          'JD',
-                          style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
+                      child: CachedNetworkImage(
+                        imageUrl: getIt<TokenStorageRepo>().userProfilePicture ?? "",
+                        placeholder: (context, url) => const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        errorWidget: (context, url, error) => const Icon(Icons.person_outline, color: Colors.white, size: 28),
+                        fit: BoxFit.fill,
+                        height: 56,
+                        width: 56,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -68,12 +76,12 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          state.profile.name,
+                          getIt<TokenStorageRepo>().userName ?? "",
                           style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          state.profile.email,
+                          getIt<TokenStorageRepo>().userEmail ?? "",
                           style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMuted),
                         ),
                         const SizedBox(height: 2),
@@ -92,30 +100,38 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                 // Menu items
                 _menuItem(Icons.person_outline, 'Profile Settings', () => context.push('/profile-settings')),
                 _menuItem(Icons.credit_card, 'Payment Methods', () => context.push('/payment-methods')),
-                _menuItem(Icons.receipt_long_outlined, 'Subscription & Bills', () {}),
+                _menuItem(Icons.receipt_long_outlined, 'Subscription & Bills', () => SubscriptionBillsSheet.show(context)),
                 _menuItem(Icons.trending_up, 'Upgrade Subscription', () => context.push('/upgrade-plan')),
                 _menuItem(Icons.emoji_events_outlined, 'User Levels', () => context.push('/user-levels')),
                 _menuItem(Icons.help_outline, 'Help & Support', () => context.push('/help-support')),
                 _menuItem(Icons.description_outlined, 'Terms & Conditions', () => context.push('/terms')),
 
-                const SizedBox(height: 16),
-                // Logout
-                GestureDetector(
-                  onTap: () => context.go('/'),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                const SizedBox(height: 8),
+                // LogoutR
+                InkWell(
+                  onTap: () {
+                    context.read<AuthBloc>().add(SignOutRequested());
+                    context.go('/welcome');
+                  },
+                  child: Container(
+                    width: double.infinity, // 👈 FULL WIDTH CLICKABLE
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Row(
                       children: [
                         const Icon(Icons.logout, color: AppColors.errorRed, size: 22),
                         const SizedBox(width: 16),
                         Text(
-                          'Logout',
-                          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.errorRed),
+                        'Logout',
+                        style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.errorRed,
                         ),
-                      ],
+                      ),
+                    ],
                     ),
                   ),
-                ),
+                )
               ],
             ),
           ),

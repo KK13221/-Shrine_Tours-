@@ -5,7 +5,8 @@ class ApiConstants {
   ApiConstants._();
 
   // Base URL — change this to your production API
-  static const String baseUrl = 'https://api.shrinetours.com/v1';
+  //static const String baseUrl = 'https://api.shrinetours.com/v1';
+  static const String baseUrl = 'http://32.193.3.150:8080/api/v1';
 
   // Auth endpoints
   static const String login = '/auth/login';
@@ -13,16 +14,24 @@ class ApiConstants {
   static const String googleSignIn = '/auth/google';
   static const String refreshToken = '/auth/refresh';
   static const String logout = '/auth/logout';
+  static const String forgotPassword = '/auth/forgot-password';
+  static const String verifyOtp = '/auth/verify-otp';
+  static const String resetPassword = '/auth/reset-password';
 
   // Trip endpoints
   static const String trips = '/trips';
   static const String tripById = '/trips/'; // + {id}
   static const String generateItinerary = '/trips/generate';
 
+  // Places endpoints
+  static const String addPlaceToTrip = '/places/add-to-trip';
+
   // Itinerary endpoints
   static const String itineraries = '/itineraries';
+  static const String generateItineraryApi = '/itineraries/generate';
   static const String itineraryById = '/itineraries/'; // + {id}
-  static const String itineraryActivities = '/itineraries/activities'; // + /{id}
+  static const String itineraryActivities =
+      '/itineraries/activities'; // + /{id}
 
   // Places endpoints
   static const String places = '/places';
@@ -31,18 +40,36 @@ class ApiConstants {
 
   // Packing endpoints
   static const String packingLists = '/packing';
+  static const String updateTransports = '/packing/'; // + {tripId}/transports
   static const String packingCategories = '/packing/categories';
+  static const String addPackingCategory =
+      '/packing/'; // + {tripId}/Addcategories
+  static const String addPackingItem = '/packing/'; // + {tripId}/add-item
 
   // Profile endpoints
   static const String profile = '/profile';
   static const String updateProfile = '/profile/update';
+  static const String uploadAvatar = '/profile/upload-avatar';
   static const String paymentMethods = '/profile/payments';
+  static const String addPaymentMethod = '/profile/Addpayments';
   static const String subscription = '/profile/subscription';
 
   // Weather
   static const String weather = '/weather'; // ?city={city}&date={date}
 
+  // Payments
+  static const String createOrder = '/payments/create-order';
+  static const String verifyPayment = '/payments/verify';
+  static const String getOrders = '/payments/orders';
+  static const String getInvoice = '/payments/orders/'; // + {id}/invoice
+
+  // Razorpay Keys (User will fill these)
+  static const String razorpayKeyId = '';
+  static const String razorpayKeySecret = '';
+
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
+
+  static const String googleApiKey = '';
 }
