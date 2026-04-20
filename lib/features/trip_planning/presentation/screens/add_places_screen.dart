@@ -18,17 +18,41 @@ class AddPlacesScreen extends StatefulWidget {
 class _AddPlacesScreenState extends State<AddPlacesScreen> {
   late final String _city;
   late final String _tripId;
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     final tripPlanningState =
         context.read<trip_planning.TripPlanningBloc>().state;
-    _city = tripPlanningState.destination.isNotEmpty
-        ? tripPlanningState.destination
-        : 'Unknown';
-    _tripId = tripPlanningState.createdTrip?.id ?? '';
-    context.read<AddPlacesBloc>().add(LoadPlaces(city: _city, tripId: _tripId));
+    _city = tripPlanningState.createdTrip?.city ??
+        tripPlanningState.selectedTripDetails?.city ??
+        (tripPlanningState.destination.isNotEmpty
+            ? tripPlanningState.destination
+            : 'Unknown');
+
+    _tripId = tripPlanningState.editingTripId ??
+        tripPlanningState.createdTrip?.id ??
+        '';
+
+    List<String> alreadyAddedPlaceIds = [];
+    if (tripPlanningState.selectedTripDetails != null) {
+      alreadyAddedPlaceIds = tripPlanningState.selectedTripDetails!.places
+          .map((p) => p.id)
+          .toList();
+    }
+
+    context.read<AddPlacesBloc>().add(LoadPlaces(
+          city: _city,
+          tripId: _tripId,
+          initialSelectedPlaceIds: alreadyAddedPlaceIds,
+        ));
   }
 
   @override
@@ -103,7 +127,7 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                     );
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (context.mounted) {
-                        context.push(
+                        context.go(
                           '/itinerary-view',
                           extra: state.itinerary.id,
                         );
@@ -178,7 +202,8 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                     Row(
                                       children: [
                                         GestureDetector(
-                                          onTap: () => context.pop(),
+                                          onTap: () =>
+                                              context.go('/itineraries'),
                                           child: const Icon(Icons.chevron_left,
                                               size: 28,
                                               color: AppColors.textDark),
@@ -196,12 +221,33 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                     ),
                                     const SizedBox(height: 20),
                                     TextField(
+                                      controller: _searchController,
+                                      onChanged: (value) {
+                                        context.read<AddPlacesBloc>().add(
+                                              SearchPlacesRequested(
+                                                  query: value),
+                                            );
+                                      },
                                       decoration: InputDecoration(
                                         hintText: 'Search for a place',
                                         prefixIcon: const Icon(Icons.search,
                                             color: AppColors.textMuted),
-                                        suffixIcon: const Icon(Icons.mic,
-                                            color: AppColors.textMuted),
+                                        suffixIcon: _searchController
+                                                .text.isNotEmpty
+                                            ? IconButton(
+                                                icon: const Icon(Icons.close),
+                                                onPressed: () {
+                                                  _searchController.clear();
+                                                  context
+                                                      .read<AddPlacesBloc>()
+                                                      .add(
+                                                        const SearchPlacesRequested(
+                                                            query: ''),
+                                                      );
+                                                },
+                                              )
+                                            : const Icon(Icons.mic,
+                                                color: AppColors.textMuted),
                                         filled: true,
                                         fillColor: AppColors.backgroundGrey,
                                         border: OutlineInputBorder(
@@ -211,310 +257,115 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 24),
-                                    Row(
-                                      children: [
-                                        const Text('✨',
-                                            style: TextStyle(fontSize: 18)),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Suggested for You',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textDark,
-                                          ),
+                                    if (state.searchError != null) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        state.searchError!,
+                                        style: GoogleFonts.inter(
+                                          color: Colors.red.shade600,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                height: 210,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 24),
-                                  itemCount: state.suggestedPlaces.length,
-                                  itemBuilder: (context, index) {
-                                    final place = state.suggestedPlaces[index];
-                                    final isSelected = state.selectedPlaceIds
-                                        .contains(place.id);
-                                    return Container(
-                                      width: 160,
-                                      margin:
-                                          const EdgeInsets.only(right: 12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 24),
+                                    if (_searchController.text.isEmpty) ...[
+                                      Row(
                                         children: [
-                                          GestureDetector(
-                                            onTap: () =>
-                                                context.push('/place-details'),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.network(
-                                                place.imageUrl,
-                                                height: 120,
-                                                width: 160,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    Container(
-                                                  height: 120,
-                                                  width: 160,
-                                                  color:
-                                                      AppColors.backgroundGrey,
-                                                  child:
-                                                      const Icon(Icons.image),
-                                                ),
-                                              ),
+                                          const Text('✨',
+                                              style: TextStyle(fontSize: 18)),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Suggested for You',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.textDark,
                                             ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      place.name,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: GoogleFonts.inter(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.w600),
-                                                    ),
-                                                    Text(
-                                                      place.category,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: GoogleFonts.inter(
-                                                          fontSize: 12,
-                                                          color: AppColors.primaryPink),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              GestureDetector(
-                                                onTap: () => context
-                                                    .read<AddPlacesBloc>()
-                                                    .add(
-                                                      TogglePlaceSelection(
-                                                          placeId:
-                                                              place.id),
-                                                    ),
-                                                child: Text(
-                                                  isSelected ? 'Remove' : 'Add',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isSelected
-                                                        ? AppColors.primaryPink
-                                                        : AppColors.successGreen,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ],
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 24),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'All Places',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textDark,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ...state.places.map((place) {
-                                      final isSelected = state.selectedPlaceIds
-                                          .contains(place.id);
-                                      return GestureDetector(
-                                        onTap: () =>
-                                            context.push('/place-details'),
-                                        child: Container(
-                                          margin:
-                                              const EdgeInsets.only(bottom: 12),
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                            border: Border.all(
-                                                color: AppColors.cardBorder),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: Image.network(
-                                                  place.imageUrl,
-                                                  width: 80,
-                                                  height: 80,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      Container(
-                                                    width: 80,
-                                                    height: 80,
-                                                    color: AppColors
-                                                        .backgroundGrey,
-                                                    child:
-                                                        const Icon(Icons.image),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 12),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(
-                                                            place.name,
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color: AppColors
-                                                                  .textDark,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                            width: 6),
-                                                        const Icon(
-                                                            Icons
-                                                                .camera_alt_outlined,
-                                                            size: 16,
-                                                            color: AppColors
-                                                                .textMuted),
-                                                        const Spacer(),
-                                                        GestureDetector(
-                                                          onTap: () => context
-                                                              .read<
-                                                                  AddPlacesBloc>()
-                                                              .add(
-                                                                TogglePlaceSelection(
-                                                                    placeId:
-                                                                        place
-                                                                            .id),
-                                                              ),
-                                                          child: Text(
-                                                            isSelected
-                                                                ? 'Remove'
-                                                                : 'Add',
-                                                            style: GoogleFonts
-                                                                .inter(
-                                                              fontSize: 14,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color: isSelected
-                                                                  ? AppColors
-                                                                      .primaryPink
-                                                                  : AppColors
-                                                                      .successGreen,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      place.typicalDuration,
-                                                      style: GoogleFonts.inter(
-                                                          fontSize: 13,
-                                                          color: AppColors
-                                                              .textMuted),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Row(
-                                                      children: [
-                                                        const Icon(Icons.star,
-                                                            size: 16,
-                                                            color:
-                                                                Colors.amber),
-                                                        const SizedBox(
-                                                            width: 4),
-                                                        Text(
-                                                          '${place.rating} (${place.reviewsCount})',
-                                                          style:
-                                                              GoogleFonts.inter(
-                                                                  fontSize: 13,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500),
-                                                        ),
-                                                        if (place.verified) ...[
-                                                          const SizedBox(
-                                                              width: 8),
-                                                          Container(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                                    horizontal:
-                                                                        8,
-                                                                    vertical:
-                                                                        2),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: AppColors
-                                                                  .successGreen
-                                                                  .withOpacity(
-                                                                      0.1),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          4),
-                                                            ),
-                                                            child: Text(
-                                                              'Verified',
-                                                              style: GoogleFonts
-                                                                  .inter(
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                color: AppColors
-                                                                    .successGreen,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                    ] else ...[
+                                      Text(
+                                        'Search Results',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textDark,
                                         ),
-                                      );
-                                    }),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
+                              if (state.isSearching)
+                                const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: CircularProgressIndicator(
+                                        color: AppColors.primaryPink),
+                                  ),
+                                )
+                              else if (_searchController.text.isNotEmpty)
+                                // Search Results View
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  child: Column(
+                                    children: state.searchResults.map((place) {
+                                      final isSelected = state.selectedPlaceIds
+                                          .contains(place.id);
+                                      return _buildPlaceItem(place, isSelected);
+                                    }).toList(),
+                                  ),
+                                )
+                              else ...[
+                                // Original View (Suggested + All Places)
+                                SizedBox(
+                                  height: 210,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 24),
+                                    itemCount: state.suggestedPlaces.length,
+                                    itemBuilder: (context, index) {
+                                      final place =
+                                          state.suggestedPlaces[index];
+                                      final isSelected = state.selectedPlaceIds
+                                          .contains(place.id);
+                                      return _buildSuggestedCard(
+                                          place, isSelected);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'All Places',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      ...state.places.map((place) {
+                                        final isSelected = state
+                                            .selectedPlaceIds
+                                            .contains(place.id);
+                                        return _buildPlaceItem(
+                                            place, isSelected);
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -555,6 +406,9 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                             tripId: _tripId,
                                             city: _city,
                                             days: days,
+                                            itineraryId: tripPlanningState
+                                                .selectedTripDetails
+                                                ?.itineraryId,
                                           ),
                                         );
                                   },
@@ -573,5 +427,182 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
             ),
           ),
         ));
+  }
+
+  Widget _buildSuggestedCard(place, bool isSelected) {
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              place.imageUrl,
+              height: 120,
+              width: 160,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 120,
+                width: 160,
+                color: AppColors.backgroundGrey,
+                child: const Icon(Icons.image),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      place.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      place.category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: AppColors.primaryPink),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () => context.read<AddPlacesBloc>().add(
+                      TogglePlaceSelection(placeId: place.id),
+                    ),
+                child: Text(
+                  isSelected ? 'Remove' : 'Add',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSelected
+                        ? AppColors.primaryPink
+                        : AppColors.successGreen,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceItem(place, bool isSelected) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorder),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              place.imageUrl,
+              width: 80,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 80,
+                height: 80,
+                color: AppColors.backgroundGrey,
+                child: const Icon(Icons.image),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        place.name,
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.camera_alt_outlined,
+                        size: 16, color: AppColors.textMuted),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => context.read<AddPlacesBloc>().add(
+                            TogglePlaceSelection(placeId: place.id),
+                          ),
+                      child: Text(
+                        isSelected ? 'Remove' : 'Add',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected
+                              ? AppColors.primaryPink
+                              : AppColors.successGreen,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  place.typicalDuration,
+                  style: GoogleFonts.inter(
+                      fontSize: 13, color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.star, size: 16, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${place.rating} (${place.reviewsCount})',
+                      style: GoogleFonts.inter(
+                          fontSize: 13, fontWeight: FontWeight.w500),
+                    ),
+                    if (place.verified) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.successGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Verified',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.successGreen,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

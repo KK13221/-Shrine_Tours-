@@ -18,8 +18,10 @@ import '../../features/trip_planning/presentation/screens/place_details_screen.d
 import '../../features/trip_planning/presentation/screens/my_itineraries_screen.dart';
 import '../../features/trip_planning/presentation/screens/trip_details_screen.dart';
 import '../../features/itinerary/presentation/screens/itinerary_view_screen.dart';
+import '../../features/itinerary/presentation/screens/itinerary_map_screen.dart';
 import '../../features/itinerary/presentation/bloc/generate_itinerary_bloc.dart';
 import '../../features/itinerary/presentation/bloc/get_itinerary_bloc.dart';
+import '../../features/itinerary/presentation/bloc/itinerary_map_bloc.dart';
 import '../../features/trip_planning/presentation/screens/trip_summary_screen.dart';
 import '../../features/packing/presentation/screens/packing_list_screen.dart';
 import '../../features/packing/presentation/screens/checking_packing_screen.dart';
@@ -29,6 +31,8 @@ import '../../features/profile/presentation/screens/payment_methods_screen.dart'
 import '../../features/profile/presentation/screens/upgrade_plan_screen.dart';
 import '../../features/payment/presentation/bloc/payment_bloc.dart';
 import '../../features/profile/presentation/screens/user_levels_screen.dart';
+import '../../features/payment/presentation/bloc/payment_order_detail_bloc.dart';
+import '../../features/profile/presentation/screens/payment_details_screen.dart';
 import '../../features/profile/presentation/screens/help_support_screen.dart';
 import '../../features/trip_planning/data/model/trips.dart';
 import '../../features/profile/presentation/screens/terms_screen.dart';
@@ -43,6 +47,20 @@ class ResetRouteExtra {
   final String email;
   final ForgetPasswordBloc bloc;
   const ResetRouteExtra({required this.email, required this.bloc});
+}
+
+class ItineraryMapExtra {
+  final String itineraryId;
+  final double? startLat;
+  final double? startLng;
+  final String? startName;
+
+  const ItineraryMapExtra({
+    required this.itineraryId,
+    this.startLat,
+    this.startLng,
+    this.startName,
+  });
 }
 
 class AppRouter {
@@ -164,9 +182,37 @@ class AppRouter {
         builder: (context, state) {
           final itineraryId = state.extra as String? ?? '';
           return BlocProvider<GetItineraryBloc>(
-            create: (_) => getIt<GetItineraryBloc>()
-              ..add(FetchItineraryRequested(itineraryId)),
+            create: (_) {
+              final bloc = getIt<GetItineraryBloc>();
+              if (itineraryId.isNotEmpty) {
+                bloc.add(FetchItineraryRequested(itineraryId));
+              }
+              return bloc;
+            },
             child: const ItineraryViewScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/itinerary-map',
+        name: 'itineraryMap',
+        builder: (context, state) {
+          final extra = state.extra as ItineraryMapExtra?;
+          final itineraryId = extra?.itineraryId ?? '';
+          return BlocProvider<ItineraryMapBloc>(
+            create: (_) {
+              final bloc = getIt<ItineraryMapBloc>();
+              if (itineraryId.isNotEmpty) {
+                bloc.add(FetchMapItineraryRequested(itineraryId));
+              }
+              return bloc;
+            },
+            child: ItineraryMapScreen(
+              itineraryId: itineraryId,
+              startLat: extra?.startLat,
+              startLng: extra?.startLng,
+              startName: extra?.startName,
+            ),
           );
         },
       ),
@@ -217,6 +263,17 @@ class AppRouter {
         path: '/terms',
         name: 'terms',
         builder: (context, state) => const TermsScreen(),
+      ),
+      GoRoute(
+        path: '/payment-details',
+        name: 'paymentDetails',
+        builder: (context, state) {
+          final orderId = state.extra as String? ?? '';
+          return BlocProvider<PaymentOrderDetailBloc>(
+            create: (_) => getIt<PaymentOrderDetailBloc>(),
+            child: PaymentDetailsScreen(orderId: orderId),
+          );
+        },
       ),
     ],
   );

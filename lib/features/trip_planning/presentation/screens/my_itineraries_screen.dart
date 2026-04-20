@@ -12,6 +12,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/trip_card.dart';
 import '../../../itinerary/presentation/bloc/itinerary_bloc.dart';
 import '../bloc/trip_planning_bloc.dart';
+import '../../../../core/widgets/plan_restriction_bottom_sheet.dart';
 
 class MyItinerariesScreen extends StatefulWidget {
   const MyItinerariesScreen({super.key});
@@ -21,6 +22,9 @@ class MyItinerariesScreen extends StatefulWidget {
 }
 
 class _MyItinerariesScreenState extends State<MyItinerariesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -28,6 +32,18 @@ class _MyItinerariesScreenState extends State<MyItinerariesScreen> {
     context.read<ProfileBloc>().add(LoadProfile());
     // Load itineraries
     context.read<ItineraryBloc>().add(LoadItineraries());
+
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   String _formatDateRange(String startDate, String endDate) {
@@ -137,6 +153,37 @@ class _MyItinerariesScreenState extends State<MyItinerariesScreen> {
                   const Divider(),
                   const SizedBox(height: 16),
 
+                  // Search Bar
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search your trips by city...',
+                      hintStyle: GoogleFonts.inter(color: AppColors.textMuted),
+                      prefixIcon:
+                          const Icon(Icons.search, color: AppColors.textMuted),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close,
+                                  color: AppColors.textMuted),
+                              onPressed: () {
+                                _searchController.clear();
+                                FocusScope.of(context).unfocus();
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          vertical: 0, horizontal: 16),
+                    ),
+                    style: GoogleFonts.inter(color: AppColors.textDark),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Trip list
                   Expanded(
                     child: RefreshIndicator(
@@ -187,86 +234,40 @@ class _MyItinerariesScreenState extends State<MyItinerariesScreen> {
                                     ),
                                   ),
                                 )
-                              : ListView.builder(
-                                  itemCount: state.trips.length,
-                                  itemBuilder: (context, index) {
-                                    final trip = state.trips[index];
-                                    return Dismissible(
-                                      key: ValueKey(trip.id),
-                                      direction: DismissDirection.endToStart,
-                                      confirmDismiss: (direction) async {
-                                        final completer = Completer<bool>();
-                                        context.read<ItineraryBloc>().add(
-                                            DeleteItinerary(
-                                                trip.id, completer));
-                                        final success = await completer.future;
-                                        if (success) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Trip deleted successfully',
-                                                style: GoogleFonts.inter(
-                                                    color: Colors.white),
-                                              ),
-                                              backgroundColor:
-                                                  Colors.green.shade600,
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                              shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          16)),
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 24,
-                                                      vertical: 16),
-                                              duration:
-                                                  const Duration(seconds: 2),
+                              : Builder(builder: (context) {
+                                  final filteredTrips =
+                                      state.trips.where((trip) {
+                                    return trip.city
+                                        .toLowerCase()
+                                        .contains(_searchQuery);
+                                  }).toList();
+
+                                  if (filteredTrips.isEmpty) {
+                                    return SingleChildScrollView(
+                                      physics:
+                                          const AlwaysScrollableScrollPhysics(),
+                                      child: SizedBox(
+                                        height:
+                                            MediaQuery.of(context).size.height *
+                                                0.5,
+                                        child: Center(
+                                          child: Text(
+                                            'No trips found',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              color: AppColors.textMuted,
                                             ),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Unable to delete trip. Please try again.',
-                                                style: GoogleFonts.inter(
-                                                    color: Colors.white),
-                                              ),
-                                              backgroundColor:
-                                                  Colors.red.shade600,
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                              shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                          16)),
-                                              margin:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 24,
-                                                      vertical: 16),
-                                              duration:
-                                                  const Duration(seconds: 3),
-                                            ),
-                                          );
-                                        }
-                                        return success;
-                                      },
-                                      background: Container(),
-                                      secondaryBackground: Container(
-                                        padding:
-                                            const EdgeInsets.only(right: 24),
-                                        alignment: Alignment.centerRight,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey.withOpacity(0.15),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
+                                          ),
                                         ),
-                                        child: const Icon(Icons.delete,
-                                            color: Colors.red, size: 28),
                                       ),
-                                      child: TripCard(
+                                    );
+                                  }
+
+                                  return ListView.builder(
+                                    itemCount: filteredTrips.length,
+                                    itemBuilder: (context, index) {
+                                      final trip = filteredTrips[index];
+                                      return TripCard(
                                         cityName: trip.city,
                                         imageUrl: trip.imageUrl,
                                         dateRange: _formatDateRange(
@@ -280,10 +281,10 @@ class _MyItinerariesScreenState extends State<MyItinerariesScreen> {
                                           context.push('/trip-details',
                                               extra: trip);
                                         },
-                                      ),
-                                    );
-                                  },
-                                ),
+                                      );
+                                    },
+                                  );
+                                }),
                     ),
                   ),
                 ],
@@ -292,13 +293,34 @@ class _MyItinerariesScreenState extends State<MyItinerariesScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.read<TripPlanningBloc>().add(ClearTripModification());
-          context.push('/plan-trip');
+      floatingActionButton: BlocBuilder<ItineraryBloc, ItineraryState>(
+        builder: (context, itineraryState) {
+          return FloatingActionButton(
+            onPressed: () {
+              final profileState = context.read<ProfileBloc>().state;
+              final isPremium = profileState.profile.premium;
+              final tripCount = itineraryState.trips.length;
+
+              final limit = isPremium ? 10 : 2;
+
+              if (tripCount >= limit) {
+                PlanRestrictionBottomSheet.show(
+                  context,
+                  title: 'Trip Limit Reached',
+                  message: isPremium
+                      ? 'You have reached the maximum limit of 10 trips for Premium users.'
+                      : 'Free users can create up to 2 trips. Upgrade to Premium to create up to 10 trips and unlock full AI potential!',
+                );
+                return;
+              }
+
+              context.read<TripPlanningBloc>().add(ClearTripModification());
+              context.push('/plan-trip');
+            },
+            backgroundColor: AppColors.primaryPink,
+            child: const Icon(Icons.add, color: Colors.white),
+          );
         },
-        backgroundColor: AppColors.primaryPink,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

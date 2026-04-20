@@ -7,11 +7,14 @@ import 'package:shrine_tours/features/auth/data/model/auth_token.dart';
 import 'package:shrine_tours/features/auth/data/model/user.dart';
 import 'package:shrine_tours/features/auth/domain/repositories/token_storage_repo.dart';
 
+import 'package:google_sign_in/google_sign_in.dart';
+
 class AuthRepository {
   final TokenStorageRepo _storage;
   final ApiClient _apiClient;
+  final GoogleSignIn _googleSignIn;
 
-  AuthRepository(this._storage, this._apiClient);
+  AuthRepository(this._storage, this._apiClient, this._googleSignIn);
 
   /// Sign in user with email and password
   Future<Either<Failure, User>> signIn(
@@ -41,6 +44,40 @@ class AuthRepository {
       return Left(ApiFailure(e.message));
     } catch (e) {
       return Left(ApiFailure('Failed to sign in: $e'));
+    }
+  }
+
+  Future<Either<Failure, bool>> logOut() async {
+    try {
+      final response = await _apiClient.post(
+        ApiConstants.logout,
+      );
+
+      if (response != null && response['success'] == true) {
+        return const Right(true);
+      } else {
+        return Left(ApiFailure(response?['message'] ?? 'Logout failed'));
+      }
+    } on ApiException catch (e) {
+      return Left(ApiFailure(e.message));
+    } catch (e) {
+      return Left(ApiFailure('Failed to Logout: $e'));
+    }
+  }
+
+  Future<void> googleSignOut() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (e) {
+      print('Google sign out failed: $e');
+    }
+  }
+
+  Future<void> googleSignInSilently() async {
+    try {
+      await _googleSignIn.signInSilently();
+    } catch (e) {
+      print('Google sign in silently failed: $e');
     }
   }
 

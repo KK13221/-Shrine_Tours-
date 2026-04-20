@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shrine_tours/core/widgets/title_case.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../bloc/trip_planning_bloc.dart';
@@ -20,6 +21,8 @@ class TripSummaryScreen extends StatelessWidget {
             state.destination.isNotEmpty ? state.destination : 'Location';
         final startDate = state.startDate;
         final endDate = state.endDate;
+
+        final city = TitleCase.toTitleCase(destination);
 
         if (startDate == null || endDate == null) {
           return const Scaffold(
@@ -46,7 +49,7 @@ class TripSummaryScreen extends StatelessWidget {
                 onPressed: () => context.pop(),
               ),
               title: Text(
-                destination,
+                city,
                 style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -164,17 +167,17 @@ class TripSummaryScreen extends StatelessWidget {
                                     '${weather.humidity}%',
                                     AppColors.primaryPink),
                                 const SizedBox(height: 12),
-                                const Divider(),
-                                const SizedBox(height: 8),
-                                Text(
-                                  weather.summary,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: AppColors.textMuted,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                                // const Divider(),
+                                // const SizedBox(height: 8),
+                                // Text(
+                                //   weather.summary,
+                                //   style: GoogleFonts.inter(
+                                //     fontSize: 13,
+                                //     color: AppColors.textMuted,
+                                //     fontStyle: FontStyle.italic,
+                                //   ),
+                                //   textAlign: TextAlign.center,
+                                // ),
                               ],
                             ),
                           );

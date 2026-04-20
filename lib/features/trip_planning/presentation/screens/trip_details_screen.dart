@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shrine_tours/core/widgets/title_case.dart';
 import 'package:shrine_tours/features/packing/presentation/screens/checking_packing_screen.dart';
 import 'package:shrine_tours/features/trip_planning/data/model/trips.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../itinerary/presentation/bloc/itinerary_bloc.dart';
 import '../bloc/trip_planning_bloc.dart';
 import '../bloc/weather/weather_bloc.dart';
 import '../../../../core/di/injection.dart';
+
+import '../../../itinerary/presentation/bloc/get_itinerary_bloc.dart';
+import '../../../itinerary/data/model/itinerary_model.dart';
 
 class TripDetailsScreen extends StatefulWidget {
   final Trips? trip;
@@ -22,6 +27,19 @@ class TripDetailsScreen extends StatefulWidget {
 class _TripDetailsScreenState extends State<TripDetailsScreen> {
   int _selectedTab = 0;
   final _tabs = ['Overview', 'Discover', 'My Items'];
+  late TripPlanningBloc _tripPlanningBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    _tripPlanningBloc = context.read<TripPlanningBloc>();
+
+    // Fetch full trip details if we have a trip ID
+    final tripId = widget.trip?.id;
+    if (tripId != null) {
+      _tripPlanningBloc.add(FetchTripById(tripId));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,115 +53,179 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               body: Center(child: CircularProgressIndicator()));
         }
 
-        return BlocProvider(
-          create: (context) => getIt<WeatherBloc>()
-            ..add(FetchWeather(city: trip.city, date: trip.startDate)),
-          child: Scaffold(
-            backgroundColor: Colors.white,
-            appBar: AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.chevron_left,
-                    size: 28, color: AppColors.textDark),
-                onPressed: () => context.pop(),
-              ),
-              title: Text(
-                trip.city,
-                style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textDark),
-              ),
-              centerTitle: false,
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (context) => getIt<WeatherBloc>()
+                ..add(FetchWeather(city: trip.city, date: trip.startDate)),
             ),
-            body: Column(
-              children: [
-                // Custom Tab Bar
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Container(
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundGrey,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Row(
-                      children: List.generate(_tabs.length, (index) {
-                        final isSelected = _selectedTab == index;
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () => setState(() => _selectedTab = index),
+            BlocProvider(
+              create: (context) => getIt<GetItineraryBloc>(),
+            ),
+          ],
+          child: BlocConsumer<TripPlanningBloc, TripPlanningState>(
+            listener: (context, state) {
+              if (state.selectedTripDetails != null &&
+                  state.selectedTripDetails!.itineraryId.isNotEmpty) {
+                // Debug: log full trip details API response to verify starting_point
+                debugPrint('=== TripDetailsScreen: getTripById response ===');
+                debugPrint('  ID         : ${state.selectedTripDetails!.id}');
+                debugPrint('  City       : ${state.selectedTripDetails!.city}');
+                debugPrint(
+                    '  StartingPt : ${state.selectedTripDetails!.startingPoint?.name ?? "NULL"}');
+                debugPrint(
+                    '  SP ID      : ${state.selectedTripDetails!.startingPoint?.id ?? "NULL"}');
+                debugPrint(
+                    '  SP LatLng  : ${state.selectedTripDetails!.startingPoint?.latitude}, ${state.selectedTripDetails!.startingPoint?.longitude}');
+                debugPrint('===============================================');
+
+                context.read<GetItineraryBloc>().add(FetchItineraryRequested(
+                    state.selectedTripDetails!.itineraryId));
+              }
+
+              if (state.creationErrorMessage != null &&
+                  state.isLoadingDetails == false) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(state.creationErrorMessage!)),
+                );
+              }
+            },
+            builder: (context, planningState) {
+              return Scaffold(
+                backgroundColor: Colors.white,
+                appBar: AppBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.chevron_left,
+                        size: 28, color: AppColors.textDark),
+                    onPressed: () => context.pop(),
+                  ),
+                  title: Text(
+                    TitleCase.toTitleCase(trip.city),
+                    style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark),
+                  ),
+                  centerTitle: false,
+                ),
+                body: planningState.isLoadingDetails
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primaryPink))
+                    : Column(
+                        children: [
+                          // Custom Tab Bar
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 16),
                             child: Container(
-                              margin: const EdgeInsets.all(4),
+                              height: 48,
                               decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                            color:
-                                                Colors.black.withOpacity(0.05),
-                                            blurRadius: 4)
-                                      ]
-                                    : null,
+                                color: AppColors.backgroundGrey,
+                                borderRadius: BorderRadius.circular(24),
                               ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                _tabs[index],
-                                style: GoogleFonts.inter(
-                                  fontSize: 13,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                  color: AppColors.textDark,
-                                ),
+                              child: Row(
+                                children: List.generate(_tabs.length, (index) {
+                                  final isSelected = _selectedTab == index;
+                                  return Expanded(
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          setState(() => _selectedTab = index),
+                                      child: Container(
+                                        margin: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.transparent,
+                                          borderRadius:
+                                              BorderRadius.circular(20),
+                                          boxShadow: isSelected
+                                              ? [
+                                                  BoxShadow(
+                                                      color: Colors.black
+                                                          .withOpacity(0.05),
+                                                      blurRadius: 4)
+                                                ]
+                                              : null,
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          _tabs[index],
+                                          style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                            color: AppColors.textDark,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
                               ),
                             ),
                           ),
-                        );
-                      }),
-                    ),
-                  ),
-                ),
 
-                // Content Area
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: _selectedTab == 2 ? 0 : 24),
-                    child: _buildTabContent(_selectedTab, trip, itineraryState),
-                  ),
-                ),
+                          // Content Area
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: _selectedTab == 2 ? 0 : 24),
+                              child: _buildTabContent(_selectedTab, trip,
+                                  itineraryState, planningState),
+                            ),
+                          ),
 
-                if (_selectedTab == 1)
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: PrimaryButton(
-                      text: 'Proceed',
-                      onPressed: () => context.push('/itinerary-view'),
-                    ),
-                  ),
-              ],
-            ),
-            floatingActionButton: _selectedTab == 1
-                ? FloatingActionButton(
-                    backgroundColor: AppColors.primaryPink,
-                    elevation: 4,
-                    shape: const CircleBorder(),
-                    onPressed: () => context.push('/add-places'),
-                    child: const Icon(Icons.add, color: Colors.white, size: 28),
-                  )
-                : null,
+                          if (_selectedTab == 1)
+                            Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: PrimaryButton(
+                                text: 'Proceed',
+                                onPressed: () {
+                                  final itineraryId =
+                                      planningState.createdTrip?.itineraryId ??
+                                          planningState.selectedTripDetails
+                                              ?.itineraryId ??
+                                          trip.itineraryId;
+                                  final startPt = planningState
+                                      .selectedTripDetails?.startingPoint;
+                                  context.push('/itinerary-map',
+                                      extra: itineraryId.isNotEmpty
+                                          ? ItineraryMapExtra(
+                                              itineraryId: itineraryId,
+                                              startLat: startPt?.latitude,
+                                              startLng: startPt?.longitude,
+                                              startName: startPt?.name,
+                                            )
+                                          : null);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                floatingActionButton: _selectedTab == 1
+                    ? FloatingActionButton(
+                        backgroundColor: AppColors.primaryPink,
+                        elevation: 4,
+                        shape: const CircleBorder(),
+                        onPressed: () => context.push('/add-places'),
+                        child: const Icon(Icons.add,
+                            color: Colors.white, size: 28),
+                      )
+                    : null,
+              );
+            },
           ),
         );
       },
     );
   }
 
-  Widget _buildTabContent(int tabIndex, Trips trip, ItineraryState state) {
+  Widget _buildTabContent(int tabIndex, Trips trip, ItineraryState state,
+      TripPlanningState planningState) {
     if (tabIndex == 0) {
       // Overview Tab (existing logic...)
       final startDateStr = _formatDate(trip.startDate);
@@ -209,7 +291,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 return const Center(
                   child: Padding(
                     padding: EdgeInsets.all(20),
-                    child: CircularProgressIndicator(color: AppColors.primaryPink),
+                    child:
+                        CircularProgressIndicator(color: AppColors.primaryPink),
                   ),
                 );
               } else if (state is WeatherError) {
@@ -236,26 +319,29 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           '${weather.maxTemp.round()}°C / ${weather.minTemp.round()}°C',
                           AppColors.primaryPink),
                       const SizedBox(height: 16),
-                      _weatherRow(Icons.water_drop_outlined, 'Precipitation',
-                          '${weather.precipitationChance}%', AppColors.primaryPink),
+                      _weatherRow(
+                          Icons.water_drop_outlined,
+                          'Precipitation',
+                          '${weather.precipitationChance}%',
+                          AppColors.primaryPink),
                       const SizedBox(height: 16),
                       _weatherRow(Icons.air, 'Wind', weather.wind,
                           AppColors.primaryPink),
                       const SizedBox(height: 16),
-                      _weatherRow(Icons.opacity, 'Humidity', '${weather.humidity}%',
-                          AppColors.primaryPink),
+                      _weatherRow(Icons.opacity, 'Humidity',
+                          '${weather.humidity}%', AppColors.primaryPink),
                       const SizedBox(height: 12),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      Text(
-                        weather.summary,
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: AppColors.textMuted,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
+                      // const Divider(),
+                      // const SizedBox(height: 8),
+                      // Text(
+                      //   weather.summary,
+                      //   style: GoogleFonts.inter(
+                      //     fontSize: 13,
+                      //     color: AppColors.textMuted,
+                      //     fontStyle: FontStyle.italic,
+                      //   ),
+                      //   textAlign: TextAlign.center,
+                      // ),
                     ],
                   ),
                 );
@@ -268,7 +354,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
             width: double.infinity,
             child: OutlinedButton(
               onPressed: () {
-                context.read<TripPlanningBloc>().add(InitializeModification(trip));
+                // Since we already fetched details in initState, we just need to ensure
+                // the editingTripId is set (which happens in the Bloc's FetchTripById handler)
                 context.push('/plan-trip');
               },
               style: OutlinedButton.styleFrom(
@@ -299,7 +386,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  'Top ${trip.placesCount.clamp(1, 5)} Places to Visit',
+                  'Top 5 Places to Visit',
                   style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -307,7 +394,30 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  final itineraryId =
+                      planningState.createdTrip?.itineraryId ??
+                          planningState.selectedTripDetails?.itineraryId ??
+                          trip.itineraryId;
+
+                  if (itineraryId.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Itinerary not available yet. Please wait.')),
+                    );
+                    return;
+                  }
+                  final startPt =
+                      planningState.selectedTripDetails?.startingPoint;
+                  context.push('/itinerary-map',
+                      extra: ItineraryMapExtra(
+                        itineraryId: itineraryId,
+                        startLat: startPt?.latitude,
+                        startLng: startPt?.longitude,
+                        startName: startPt?.name,
+                      ));
+                },
                 icon: const Icon(Icons.map_outlined,
                     size: 16, color: AppColors.primaryPink),
                 label: Text(
@@ -330,82 +440,168 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          ...state.activities.take(5).map((activity) {
-            final idx = state.activities.indexOf(activity);
-            final dayIndex = (idx ~/ 2) + 1;
+          BlocBuilder<GetItineraryBloc, GetItineraryState>(
+            builder: (context, state) {
+              if (state is GetItineraryLoading) {
+                return const Center(
+                    child: Padding(
+                  padding: EdgeInsets.all(40),
+                  child:
+                      CircularProgressIndicator(color: AppColors.primaryPink),
+                ));
+              }
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.cardBorder),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined,
-                          color: AppColors.primaryPink, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          activity.title,
-                          style: GoogleFonts.inter(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textDark),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryPinkSoft,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Day $dayIndex',
-                          style: GoogleFonts.inter(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryPink),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const SizedBox(width: 32),
-                      const Icon(Icons.access_time,
-                          size: 14, color: AppColors.textMuted),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Morning • ${activity.duration}',
-                        style: GoogleFonts.inter(
-                            fontSize: 13, color: AppColors.textMuted),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 32),
+              if (state is GetItinerarySuccess) {
+                // Flatten activities across all days
+                final allActivities = state.itinerary.days
+                    .expand((day) => day.activities
+                        .map((act) => MapEntry(day.dayNumber, act)))
+                    .toList();
+
+                final activitiesToShow = allActivities.take(5).toList();
+
+                return Column(
+                  children: activitiesToShow.map((entry) {
+                    final dayNum = entry.key;
+                    final activity = entry.value;
+
+                    return _buildActivityCard(activity, dayNum);
+                  }).toList(),
+                );
+              }
+
+              if (state is GetItineraryFailure) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      'One of the popular places with stunning views and great architecture to explore.',
-                      style: GoogleFonts.inter(
-                          fontSize: 14, color: AppColors.textDark, height: 1.5),
+                      'Failed to load recommendations',
+                      style: GoogleFonts.inter(color: AppColors.textMuted),
                     ),
                   ),
-                ],
-              ),
-            );
-          }),
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
+          ),
         ],
       );
     } else {
       return CheckingPackingScreen(tripId: trip.id, isFromTabs: true);
+    }
+  }
+
+  Widget _buildActivityCard(ItineraryActivityModel activity, int dayNumber) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.cardBorder),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPink.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _getActivityDesignIcon(activity.icon),
+                  color: AppColors.primaryPink,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  activity.title,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPinkSoft,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Day $dayNumber',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryPink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const SizedBox(width: 40),
+              Icon(Icons.access_time_outlined,
+                  size: 14, color: AppColors.textMuted),
+              const SizedBox(width: 6),
+              Text(
+                '${activity.activityTime} • ${activity.duration}',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Padding(
+          //   padding: const EdgeInsets.only(left: 40),
+          //   child: Text(
+          //     (activity.description?.isNotEmpty == true)
+          //       ? activity.description!
+          //       : 'Enjoy a beautiful visit to this popular spot known for its stunning architecture and cultural significance.',
+          //     style: GoogleFonts.inter(
+          //       fontSize: 14,
+          //       color: AppColors.textDark.withOpacity(0.8),
+          //       height: 1.5,
+          //     ),
+          //   ),
+          // ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getActivityDesignIcon(String icon) {
+    switch (icon) {
+      case 'temple':
+        return Icons.temple_hindu_outlined;
+      case 'activity':
+        return Icons.history_edu_outlined;
+      case 'explore':
+        return Icons.explore_outlined;
+      case 'restaurant':
+        return Icons.restaurant_outlined;
+      default:
+        return Icons.location_on_outlined;
     }
   }
 
@@ -471,6 +667,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       ],
     );
   }
+
   String _formatDate(String dateString) {
     try {
       final date = DateTime.parse(dateString);

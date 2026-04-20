@@ -1,8 +1,14 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shrine_tours/features/trip_planning/data/model/trips.dart';
+import 'package:shrine_tours/features/trip_planning/data/model/trip_detail_response.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/create_trip_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/get_trip_by_id_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/update_trip_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/search_places_from_google_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/get_place_details_usecase.dart';
+import '../../data/model/place.dart';
 
 // Events
 abstract class TripPlanningEvent extends Equatable {
@@ -79,6 +85,29 @@ class InitializeModification extends TripPlanningEvent {
 
 class ClearTripModification extends TripPlanningEvent {}
 
+class FetchTripById extends TripPlanningEvent {
+  final String tripId;
+  const FetchTripById(this.tripId);
+  @override
+  List<Object?> get props => [tripId];
+}
+
+class SearchStartingPoint extends TripPlanningEvent {
+  final String query;
+  const SearchStartingPoint(this.query);
+  @override
+  List<Object?> get props => [query];
+}
+
+class SelectStartingPoint extends TripPlanningEvent {
+  final String placeId;
+  const SelectStartingPoint(this.placeId);
+  @override
+  List<Object?> get props => [placeId];
+}
+
+class ClearStartingPointSearch extends TripPlanningEvent {}
+
 // States
 class TripPlanningState extends Equatable {
   final String destination;
@@ -94,6 +123,11 @@ class TripPlanningState extends Equatable {
   final Trips? createdTrip;
   final String? creationErrorMessage;
   final String? editingTripId;
+  final TripDetailResponse? selectedTripDetails;
+  final bool isLoadingDetails;
+  final List<Place> startingPointPredictions;
+  final Place? selectedStartingPoint;
+  final bool isSearchingStartingPoint;
 
   const TripPlanningState({
     this.destination = '',
@@ -109,6 +143,11 @@ class TripPlanningState extends Equatable {
     this.createdTrip,
     this.creationErrorMessage,
     this.editingTripId,
+    this.selectedTripDetails,
+    this.isLoadingDetails = false,
+    this.startingPointPredictions = const [],
+    this.selectedStartingPoint,
+    this.isSearchingStartingPoint = false,
   });
 
   TripPlanningState copyWith({
@@ -125,6 +164,13 @@ class TripPlanningState extends Equatable {
     Trips? createdTrip,
     String? creationErrorMessage,
     String? editingTripId,
+    TripDetailResponse? selectedTripDetails,
+    bool? isLoadingDetails,
+    List<Place>? startingPointPredictions,
+    Place? selectedStartingPoint,
+    bool clearSelectedStartingPoint = false,
+    bool clearCreatedTrip = false,
+    bool? isSearchingStartingPoint,
   }) {
     return TripPlanningState(
       destination: destination ?? this.destination,
@@ -137,9 +183,18 @@ class TripPlanningState extends Equatable {
       tripStyle: tripStyle ?? this.tripStyle,
       selectedPlaces: selectedPlaces ?? this.selectedPlaces,
       isGenerating: isGenerating ?? this.isGenerating,
-      createdTrip: createdTrip ?? this.createdTrip,
+      createdTrip: clearCreatedTrip ? null : createdTrip ?? this.createdTrip,
       creationErrorMessage: creationErrorMessage ?? this.creationErrorMessage,
       editingTripId: editingTripId ?? this.editingTripId,
+      selectedTripDetails: selectedTripDetails ?? this.selectedTripDetails,
+      isLoadingDetails: isLoadingDetails ?? this.isLoadingDetails,
+      startingPointPredictions:
+          startingPointPredictions ?? this.startingPointPredictions,
+      selectedStartingPoint: clearSelectedStartingPoint
+          ? null
+          : selectedStartingPoint ?? this.selectedStartingPoint,
+      isSearchingStartingPoint:
+          isSearchingStartingPoint ?? this.isSearchingStartingPoint,
     );
   }
 
@@ -158,6 +213,11 @@ class TripPlanningState extends Equatable {
         createdTrip,
         creationErrorMessage,
         editingTripId,
+        selectedTripDetails,
+        isLoadingDetails,
+        startingPointPredictions,
+        selectedStartingPoint,
+        isSearchingStartingPoint,
       ];
 }
 
@@ -165,8 +225,16 @@ class TripPlanningState extends Equatable {
 class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
   final CreateTripUseCase _createTripUseCase;
   final UpdateTripUseCase _updateTripUseCase;
+  final GetTripByIdUseCase _getTripByIdUseCase;
+  final SearchPlacesFromGoogleUseCase _searchPlacesFromGoogleUseCase;
+  final GetPlaceDetailsUseCase _getPlaceDetailsUseCase;
 
-  TripPlanningBloc(this._createTripUseCase, this._updateTripUseCase)
+  TripPlanningBloc(
+      this._createTripUseCase,
+      this._updateTripUseCase,
+      this._getTripByIdUseCase,
+      this._searchPlacesFromGoogleUseCase,
+      this._getPlaceDetailsUseCase)
       : super(const TripPlanningState()) {
     on<UpdateDestination>(
         (event, emit) => emit(state.copyWith(destination: event.city)));
@@ -185,6 +253,10 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
     on<ClearTripModification>(_onClearTripModification);
     on<TogglePlaceSelection>(_onTogglePlace);
     on<GenerateItinerary>(_onGenerate);
+    on<FetchTripById>(_onFetchTripById);
+    on<SearchStartingPoint>(_onSearchStartingPoint);
+    on<SelectStartingPoint>(_onSelectStartingPoint);
+    on<ClearStartingPointSearch>(_onClearStartingPointSearch);
   }
 
   void _onInitializeModification(
@@ -255,7 +327,11 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
         kids: state.kids,
         tripStyle: _mapTripStyleToValue(state.tripStyle),
         purposeOfTravel: state.purpose,
+        startingPoint: state.selectedStartingPoint,
       );
+
+      print("update trip params");
+      print(params);
 
       final result = await _updateTripUseCase(params);
 
@@ -267,6 +343,7 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
         (trip) => emit(state.copyWith(
           isGenerating: false,
           createdTrip: trip,
+          destination: trip.city, // Sync with backend-normalized city
           creationErrorMessage: null,
           editingTripId: null, // Clear after success
         )),
@@ -280,7 +357,11 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
         kids: state.kids,
         tripStyle: _mapTripStyleToValue(state.tripStyle),
         purposeOfTravel: state.purpose,
+        startingPoint: state.selectedStartingPoint,
       );
+
+      print("create trip params");
+      print(params);
 
       final result = await _createTripUseCase(params);
 
@@ -292,6 +373,7 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
         (trip) => emit(state.copyWith(
           isGenerating: false,
           createdTrip: trip,
+          destination: trip.city, // Sync with backend-normalized city
           creationErrorMessage: null,
         )),
       );
@@ -314,8 +396,24 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
   }
 
   String _reverseMapTripStyle(String style) {
-    // Backend returns strings like "Budget Friendly", but check if it's different
-    return style;
+    switch (style) {
+      case '2':
+      case 'Fast Travel':
+        return 'Fast Travel';
+      case '3':
+      case 'Relaxed Vacation':
+        return 'Relaxed Vacation';
+      case '4':
+      case 'Explore Everything':
+        return 'Explore Everything';
+      case '5':
+      case 'Food Lover':
+        return 'Food Lover';
+      case '1':
+      case 'Budget Friendly':
+      default:
+        return 'Budget Friendly';
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -323,5 +421,128 @@ class TripPlanningBloc extends Bloc<TripPlanningEvent, TripPlanningState> {
     final day = date.day.toString().padLeft(2, '0');
     final year = date.year.toString();
     return '$year-$month-$day';
+  }
+
+  Future<void> _onFetchTripById(
+      FetchTripById event, Emitter<TripPlanningState> emit) async {
+    emit(state.copyWith(
+      isLoadingDetails: true,
+      creationErrorMessage: null,
+      clearCreatedTrip: true, // Clear stale createdTrip when switching to a specific trip
+    ));
+
+    final result = await _getTripByIdUseCase(event.tripId);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        isLoadingDetails: false,
+        creationErrorMessage: failure.message,
+      )),
+      (tripDetails) {
+        // Parse traveller type from adults/kids
+        String travellerType = 'family';
+        if (tripDetails.adults == 1 && tripDetails.kids == 0)
+          travellerType = 'solo';
+        if (tripDetails.adults == 2 && tripDetails.kids == 0)
+          travellerType = 'couple';
+
+        // Debug: print the starting_point coming from get-trip-by-id API
+        debugPrint('=== FetchTripById Response ===');
+        debugPrint('Trip ID     : ${tripDetails.id}');
+        debugPrint('City        : ${tripDetails.city}');
+        debugPrint('Starting Pt : ${tripDetails.startingPoint?.name ?? "NULL"}');
+        debugPrint('SP ID       : ${tripDetails.startingPoint?.id ?? "NULL"}');
+        debugPrint('==============================');
+
+        // Build Place from starting_point if present
+        Place? sp;
+        if (tripDetails.startingPoint != null) {
+          sp = Place(
+            id: tripDetails.startingPoint!.id,
+            name: tripDetails.startingPoint!.name,
+            category: tripDetails.startingPoint!.category,
+            imageUrl: tripDetails.startingPoint!.imageUrl,
+            typicalDuration: tripDetails.startingPoint!.typicalDuration,
+            rating: tripDetails.startingPoint!.rating,
+            reviewsCount: tripDetails.startingPoint!.reviewsCount,
+            verified: tripDetails.startingPoint!.verified,
+            latitude: tripDetails.startingPoint!.latitude,
+            longitude: tripDetails.startingPoint!.longitude,
+          );
+        }
+
+        emit(state.copyWith(
+          isLoadingDetails: false,
+          selectedTripDetails: tripDetails,
+          destination: tripDetails.city,
+          travellerType: travellerType,
+          purpose: tripDetails.purposeOfTravel,
+          startDate: DateTime.tryParse(tripDetails.startDate),
+          endDate: DateTime.tryParse(tripDetails.endDate),
+          adults: tripDetails.adults,
+          kids: tripDetails.kids,
+          tripStyle: _reverseMapTripStyle(tripDetails.tripStyle),
+          editingTripId: tripDetails.id,
+          // CRITICAL: always explicitly clear previoustrip's selectedStartingPoint.
+          // If this trip has a starting_point, set it; otherwise force-clear
+          // using clearSelectedStartingPoint so the old value isn't preserved.
+          clearSelectedStartingPoint: sp == null,
+          selectedStartingPoint: sp,
+        ));
+      },
+    );
+  }
+
+  Future<void> _onSearchStartingPoint(
+      SearchStartingPoint event, Emitter<TripPlanningState> emit) async {
+    if (event.query.isEmpty) {
+      emit(state.copyWith(startingPointPredictions: []));
+      return;
+    }
+
+    emit(state.copyWith(isSearchingStartingPoint: true));
+
+    final result = await _searchPlacesFromGoogleUseCase(event.query);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+          isSearchingStartingPoint: false,
+          creationErrorMessage: failure.message)),
+      (predictions) => emit(state.copyWith(
+          isSearchingStartingPoint: false,
+          startingPointPredictions: predictions)),
+    );
+  }
+
+  Future<void> _onSelectStartingPoint(
+      SelectStartingPoint event, Emitter<TripPlanningState> emit) async {
+    if (event.placeId.isEmpty) {
+      emit(state.copyWith(
+        clearSelectedStartingPoint: true,
+        startingPointPredictions: [],
+        isSearchingStartingPoint: false,
+      ));
+      return;
+    }
+
+    emit(state.copyWith(isSearchingStartingPoint: true));
+
+    final result = await _getPlaceDetailsUseCase(event.placeId);
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+          isSearchingStartingPoint: false,
+          creationErrorMessage: failure.message)),
+      (place) => emit(state.copyWith(
+        isSearchingStartingPoint: false,
+        selectedStartingPoint: place,
+        startingPointPredictions: [], // Clear after selection
+      )),
+    );
+  }
+
+  void _onClearStartingPointSearch(
+      ClearStartingPointSearch event, Emitter<TripPlanningState> emit) {
+    emit(state.copyWith(startingPointPredictions: []));
   }
 }

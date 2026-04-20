@@ -6,6 +6,7 @@ abstract class PaymentDataSource {
   Future<PaymentOrderResponse> createOrder(PaymentOrderRequest request);
   Future<PaymentVerifyResponse> verifyPayment(PaymentVerifyRequest request);
   Future<OrderHistoryResponse> getOrderHistory();
+  Future<PaymentOrderResponse> getOrderById(String id);
   Future<void> downloadInvoice(String id, String savePath);
 }
 
@@ -51,6 +52,17 @@ class PaymentDataSourceImpl implements PaymentDataSource {
       return OrderHistoryResponse.fromJson(response);
     } else {
       throw Exception(response?['message'] ?? 'Failed to get order history');
+    }
+  }
+
+  @override
+  Future<PaymentOrderResponse> getOrderById(String id) async {
+    final response = await _apiClient.get('${ApiConstants.getOrders}/$id');
+
+    if (response != null && response['success'] == true) {
+      return PaymentOrderResponse.fromJson(response);
+    } else {
+      throw Exception(response?['message'] ?? 'Failed to get order details');
     }
   }
 

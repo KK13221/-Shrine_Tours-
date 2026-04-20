@@ -24,14 +24,19 @@ class ApiConstants {
   static const String generateItinerary = '/trips/generate';
 
   // Places endpoints
-  static const String addPlaceToTrip = '/places/add-to-trip';
+  static const String addPlaceToTrip = '/places/trip/add';
+  static const String removePlaceFromTrip = '/places/trip/remove';
 
   // Itinerary endpoints
   static const String itineraries = '/itineraries';
   static const String generateItineraryApi = '/itineraries/generate';
   static const String itineraryById = '/itineraries/'; // + {id}
+  static const String modifyItinerary = '/itineraries/'; // + {id}
   static const String itineraryActivities =
       '/itineraries/activities'; // + /{id}
+  static const String addActivity = '/itineraries/'; // + {id}/add-activity
+  static const String removeActivity =
+      '/itineraries/remove-activity/'; // + {activityId}
 
   // Places endpoints
   static const String places = '/places';
@@ -64,12 +69,12 @@ class ApiConstants {
   static const String getInvoice = '/payments/orders/'; // + {id}/invoice
 
   // Razorpay Keys (User will fill these)
-  static const String razorpayKeyId = '';
-  static const String razorpayKeySecret = '';
+  static const String razorpayKeyId = 'razorpay_key';
+  static const String razorpayKeySecret = 'razorpay_secret';
 
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
 
-  static const String googleApiKey = '';
+  static const String googleApiKey = 'your_api_key';
 }

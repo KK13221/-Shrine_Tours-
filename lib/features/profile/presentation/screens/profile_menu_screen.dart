@@ -36,7 +36,10 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
             elevation: 0,
             title: Text(
               'Profile',
-              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
+              style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textDark),
             ),
             centerTitle: true,
             automaticallyImplyLeading: false,
@@ -60,12 +63,19 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                       height: 56,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.pinkAccent, // Placeholder background color
+                        color:
+                            Colors.pinkAccent, // Placeholder background color
                       ),
                       child: CachedNetworkImage(
-                        imageUrl: getIt<TokenStorageRepo>().userProfilePicture ?? "",
-                        placeholder: (context, url) => const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        errorWidget: (context, url, error) => const Icon(Icons.person_outline, color: Colors.white, size: 28),
+                        imageUrl:
+                            getIt<TokenStorageRepo>().userProfilePicture ?? "",
+                        placeholder: (context, url) =>
+                            const CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                        errorWidget: (context, url, error) => const Icon(
+                            Icons.person_outline,
+                            color: Colors.white,
+                            size: 28),
                         fit: BoxFit.fill,
                         height: 56,
                         width: 56,
@@ -77,17 +87,26 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                       children: [
                         Text(
                           getIt<TokenStorageRepo>().userName ?? "",
-                          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                          style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textDark),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           getIt<TokenStorageRepo>().userEmail ?? "",
-                          style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMuted),
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: AppColors.textMuted),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Premium Member',
-                          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.primaryPink),
+                          getIt<TokenStorageRepo>().userPremium == true
+                              ? "Premium Member"
+                              : "Free Tier Account",
+                          style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primaryPink),
                         ),
                       ],
                     ),
@@ -98,13 +117,20 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                 const SizedBox(height: 8),
 
                 // Menu items
-                _menuItem(Icons.person_outline, 'Profile Settings', () => context.push('/profile-settings')),
-                _menuItem(Icons.credit_card, 'Payment Methods', () => context.push('/payment-methods')),
-                _menuItem(Icons.receipt_long_outlined, 'Subscription & Bills', () => SubscriptionBillsSheet.show(context)),
-                _menuItem(Icons.trending_up, 'Upgrade Subscription', () => context.push('/upgrade-plan')),
-                _menuItem(Icons.emoji_events_outlined, 'User Levels', () => context.push('/user-levels')),
-                _menuItem(Icons.help_outline, 'Help & Support', () => context.push('/help-support')),
-                _menuItem(Icons.description_outlined, 'Terms & Conditions', () => context.push('/terms')),
+                _menuItem(Icons.person_outline, 'Profile Settings',
+                    () => context.push('/profile-settings')),
+                _menuItem(Icons.credit_card, 'Payment Methods',
+                    () => context.push('/payment-methods')),
+                _menuItem(Icons.receipt_long_outlined, 'Subscription & Bills',
+                    () => SubscriptionBillsSheet.show(context)),
+                _menuItem(Icons.trending_up, 'Upgrade Subscription',
+                    () => context.push('/upgrade-plan')),
+                _menuItem(Icons.emoji_events_outlined, 'User Levels',
+                    () => context.push('/user-levels')),
+                _menuItem(Icons.help_outline, 'Help & Support',
+                    () => context.push('/help-support')),
+                _menuItem(Icons.description_outlined, 'Terms & Conditions',
+                    () => context.push('/terms')),
 
                 const SizedBox(height: 8),
                 // LogoutR
@@ -118,17 +144,18 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Row(
                       children: [
-                        const Icon(Icons.logout, color: AppColors.errorRed, size: 22),
+                        const Icon(Icons.logout,
+                            color: AppColors.errorRed, size: 22),
                         const SizedBox(width: 16),
                         Text(
-                        'Logout',
-                        style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.errorRed,
+                          'Logout',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.errorRed,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
                     ),
                   ),
                 )
@@ -152,10 +179,14 @@ class _ProfileMenuScreenState extends State<ProfileMenuScreen> {
             Expanded(
               child: Text(
                 label,
-                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textDark),
+                style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textDark),
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 22),
+            const Icon(Icons.chevron_right,
+                color: AppColors.textMuted, size: 22),
           ],
         ),
       ),

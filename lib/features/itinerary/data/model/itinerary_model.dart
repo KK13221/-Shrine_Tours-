@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../trip_planning/data/model/place.dart';
 
 class ItineraryModel extends Equatable {
   final String id;
@@ -45,17 +46,24 @@ class ItineraryModel extends Equatable {
 class ItineraryDayModel extends Equatable {
   final int dayNumber;
   final List<ItineraryActivityModel> activities;
+  final List<Place> places;
 
   const ItineraryDayModel({
     required this.dayNumber,
     required this.activities,
+    required this.places,
   });
 
   factory ItineraryDayModel.fromJson(Map<String, dynamic> json) {
     return ItineraryDayModel(
       dayNumber: json['dayNumber'] as int? ?? 1,
       activities: (json['activities'] as List<dynamic>?)
-              ?.map((e) => ItineraryActivityModel.fromJson(e as Map<String, dynamic>))
+              ?.map((e) =>
+                  ItineraryActivityModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      places: (json['places'] as List<dynamic>?)
+              ?.map((e) => Place.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
     );
@@ -65,11 +73,12 @@ class ItineraryDayModel extends Equatable {
     return {
       'dayNumber': dayNumber,
       'activities': activities.map((e) => e.toJson()).toList(),
+      'places': places.map((e) => e.toJson()).toList(),
     };
   }
 
   @override
-  List<Object?> get props => [dayNumber, activities];
+  List<Object?> get props => [dayNumber, activities, places];
 }
 
 class ItineraryActivityModel extends Equatable {
@@ -79,6 +88,9 @@ class ItineraryActivityModel extends Equatable {
   final String duration;
   final double cost;
   final String icon;
+  final String placeId;
+
+  final String? description;
 
   const ItineraryActivityModel({
     required this.id,
@@ -87,6 +99,8 @@ class ItineraryActivityModel extends Equatable {
     required this.duration,
     required this.cost,
     required this.icon,
+    required this.placeId,
+    this.description,
   });
 
   factory ItineraryActivityModel.fromJson(Map<String, dynamic> json) {
@@ -97,6 +111,8 @@ class ItineraryActivityModel extends Equatable {
       duration: json['duration'] as String? ?? '',
       cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
       icon: json['icon'] as String? ?? 'explore',
+      placeId: json['placeId'] as String? ?? '',
+      description: json['description'] as String? ?? '',
     );
   }
 
@@ -108,9 +124,12 @@ class ItineraryActivityModel extends Equatable {
       'duration': duration,
       'cost': cost,
       'icon': icon,
+      'placeId': placeId,
+      'description': description,
     };
   }
 
   @override
-  List<Object?> get props => [id, activityTime, title, duration, cost, icon];
+  List<Object?> get props =>
+      [id, activityTime, title, duration, cost, icon, placeId, description];
 }

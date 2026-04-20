@@ -17,8 +17,8 @@ class WelcomeScreen extends StatelessWidget {
           Container(
             decoration: const BoxDecoration(
               image: DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1436491865332-7a61a109db05?w=600',
+                image: AssetImage(
+                  'assets/images/welcomeImage.jpg',
                 ),
                 fit: BoxFit.cover,
               ),
@@ -40,6 +40,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
           ),
+
           // Content
           SafeArea(
             child: Padding(
@@ -47,18 +48,14 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 children: [
                   const SizedBox(height: 24),
+
                   // Logo
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.orange.withOpacity(0.6), width: 2),
-                    ),
-                    child: const Icon(Icons.access_time, color: Colors.orange, size: 24),
+                  Image.asset(
+                    'assets/images/appLogoTransparent.png',
+                    height: 80, // control here
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 16),
+
                   // App Name
                   Text(
                     'ShrineTours',
@@ -125,6 +122,20 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 20),
+
+                  const Text(
+                    "P.C goes to unsplash.com/Fabio Comparelli",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontStyle: FontStyle.italic,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white60,
+                    ),
+                  ),
+
                   const SizedBox(height: 40),
                 ],
               ),

@@ -73,11 +73,13 @@ class ApiClient {
   Future<dynamic> delete(
     String endpoint, {
     Map<String, String>? headers,
+    dynamic body,
   }) async {
     try {
       final response = await _dio.delete(
         endpoint,
         options: Options(headers: headers),
+        data: body,
       );
       return _handleResponse(response);
     } on DioException catch (e) {
@@ -156,7 +158,8 @@ class ApiClient {
     final statusCode = response.statusCode ?? 200;
 
     if (statusCode == 200 || statusCode == 201) {
-      if (response.data == null || (response.data as dynamic)?.isEmpty == true) {
+      if (response.data == null ||
+          (response.data as dynamic)?.isEmpty == true) {
         return null;
       }
       return response.data;
@@ -208,13 +211,15 @@ class ApiClient {
         }
 
       case DioExceptionType.connectionError:
-        return NetworkException(message: 'Network error: ${dioException.message}');
+        return NetworkException(
+            message: 'Network error: ${dioException.message}');
 
       case DioExceptionType.cancel:
         return ApiException(message: 'Request cancelled');
 
       case DioExceptionType.badCertificate:
-        return NetworkException(message: 'Bad certificate: ${dioException.message}');
+        return NetworkException(
+            message: 'Bad certificate: ${dioException.message}');
 
       case DioExceptionType.unknown:
         return NetworkException(

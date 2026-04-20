@@ -47,6 +47,18 @@ class PaymentRepositoryImpl implements PaymentRepository {
   }
 
   @override
+  Future<Either<Failure, PaymentOrderResponse>> getOrderById(String id) async {
+    try {
+      final response = await _dataSource.getOrderById(id);
+      return Right(response);
+    } on ApiException catch (e) {
+      return Left(ApiFailure(e.message));
+    } catch (e) {
+      return Left(ApiFailure('Failed to get order details: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> downloadInvoice(String id, String savePath) async {
     try {
       await _dataSource.downloadInvoice(id, savePath);

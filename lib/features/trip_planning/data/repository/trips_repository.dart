@@ -3,6 +3,7 @@ import 'package:shrine_tours/core/api/api_exceptions.dart';
 import 'package:shrine_tours/core/failures.dart';
 import 'package:shrine_tours/features/trip_planning/data/datasource/trips_data_source.dart';
 import 'package:shrine_tours/features/trip_planning/data/model/trips.dart';
+import 'package:shrine_tours/features/trip_planning/data/model/trip_detail_response.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/add_place_to_trip_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/create_trip_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/update_trip_usecase.dart';
@@ -22,6 +23,9 @@ abstract class ITripsRepository {
 
   /// Delete a trip by id
   Future<Either<Failure, void>> deleteTrip(String tripId);
+
+  /// Get trip by id
+  Future<Either<Failure, TripDetailResponse>> getTripById(String tripId);
 }
 
 class TripsRepository implements ITripsRepository {
@@ -53,6 +57,7 @@ class TripsRepository implements ITripsRepository {
           'kids': params.kids,
           'trip_style': params.tripStyle,
           'purpose_of_travel': params.purposeOfTravel,
+          'starting_point': params.startingPoint?.toJson(),
         },
       );
       return Right(trip);
@@ -94,6 +99,7 @@ class TripsRepository implements ITripsRepository {
           'kids': params.kids,
           'trip_style': params.tripStyle,
           'purpose_of_travel': params.purposeOfTravel,
+          'starting_point': params.startingPoint?.toJson(),
         },
       );
       return Right(trip);
@@ -113,6 +119,18 @@ class TripsRepository implements ITripsRepository {
       return Left(ApiFailure(e.message));
     } catch (e) {
       return Left(ApiFailure('Failed to delete trip: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, TripDetailResponse>> getTripById(String tripId) async {
+    try {
+      final trip = await _dataSource.getTripById(tripId);
+      return Right(trip);
+    } on ApiException catch (e) {
+      return Left(ApiFailure(e.message));
+    } catch (e) {
+      return Left(ApiFailure('Failed to fetch trip details: $e'));
     }
   }
 }

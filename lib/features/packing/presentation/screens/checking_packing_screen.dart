@@ -7,6 +7,8 @@ import 'package:shrine_tours/core/theme/app_theme.dart';
 import 'package:shrine_tours/core/widgets/primary_button.dart';
 import 'package:shrine_tours/features/trip_planning/presentation/bloc/trip_planning_bloc.dart';
 import 'package:shrine_tours/features/packing/presentation/bloc/packing_bloc.dart';
+import 'package:shrine_tours/features/profile/presentation/bloc/profile_bloc.dart';
+import 'package:shrine_tours/core/widgets/plan_restriction_bottom_sheet.dart';
 
 class CheckingPackingScreen extends StatefulWidget {
   final String? tripId;
@@ -38,9 +40,14 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
   @override
   void initState() {
     super.initState();
-    final effectiveTripId = widget.tripId ??
-        context.read<TripPlanningBloc>().state.createdTrip?.id ??
-        '';
+    final planState = context.read<TripPlanningBloc>().state;
+    final effectiveTripId = widget.tripId?.isNotEmpty == true
+        ? widget.tripId!
+        : (planState.createdTrip?.id ?? '').isNotEmpty
+            ? planState.createdTrip!.id
+            : (planState.selectedTripDetails?.id ?? '').isNotEmpty
+                ? planState.selectedTripDetails!.id
+                : planState.editingTripId ?? '';
     context.read<PackingBloc>().add(LoadPackingList(effectiveTripId));
   }
 
@@ -56,6 +63,17 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
   // ── Add item helpers ──────────────────────────────────────────────────────
 
   void _openAddItem(int catIndex) {
+    final isPremium = context.read<ProfileBloc>().state.profile.premium;
+    if (!isPremium) {
+      PlanRestrictionBottomSheet.show(
+        context,
+        title: 'Premium Feature',
+        message:
+            'Personalizing your packing list by adding custom items is a Premium feature. Upgrade now to fully customize your travel essentials!',
+      );
+      return;
+    }
+
     if (_addingCategory) {
       setState(() => _addingCategory = false);
       _addCategoryController.clear();
@@ -92,6 +110,17 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
   // ── Add category helpers ──────────────────────────────────────────────────
 
   void _openAddCategory() {
+    final isPremium = context.read<ProfileBloc>().state.profile.premium;
+    if (!isPremium) {
+      PlanRestrictionBottomSheet.show(
+        context,
+        title: 'Premium Feature',
+        message:
+            'Organizing your gear with custom categories is exclusive to Premium members. Upgrade today to take full control of your packing!',
+      );
+      return;
+    }
+
     if (_addingItemToCategoryIndex != null) {
       setState(() => _addingItemToCategoryIndex = null);
       _addItemController.clear();
@@ -125,27 +154,33 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveTripId = widget.tripId ??
-        context.watch<TripPlanningBloc>().state.createdTrip?.id ??
-        '';
+    final planState = context.watch<TripPlanningBloc>().state;
+    // Resolve tripId across both creation and modification flows
+    final effectiveTripId = widget.tripId?.isNotEmpty == true
+        ? widget.tripId!
+        : (planState.createdTrip?.id ?? '').isNotEmpty
+            ? planState.createdTrip!.id
+            : (planState.selectedTripDetails?.id ?? '').isNotEmpty
+                ? planState.selectedTripDetails!.id
+                : planState.editingTripId ?? '';
 
     return BlocListener<PackingBloc, PackingState>(
       listener: (context, state) {
         if (state.submitSuccess == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Packing list updated successfully',
-                style: GoogleFonts.inter(color: Colors.white),
-              ),
-              backgroundColor: AppColors.primaryPink,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            ),
-          );
+          // ScaffoldMessenger.of(context).showSnackBar(
+          //   SnackBar(
+          //     content: Text(
+          //       'Packing list updated successfully',
+          //       style: GoogleFonts.inter(color: Colors.white),
+          //     ),
+          //     backgroundColor: AppColors.primaryPink,
+          //     behavior: SnackBarBehavior.floating,
+          //     duration: const Duration(seconds: 2),
+          //     shape: RoundedRectangleBorder(
+          //         borderRadius: BorderRadius.circular(16)),
+          //     margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          //   ),
+          // );
         } else if (state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -249,61 +284,80 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
         ],
 
         // ── Hero image with progress ──────────────────────────
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            children: [
-              Image.network(
-                'https://images.unsplash.com/photo-1541370976299-4d24ebbc9077?w=500',
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 180,
-                  color: AppColors.backgroundGrey,
-                  child: const Center(child: Icon(Icons.image, size: 48)),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(16)),
+        Builder(
+          builder: (context) {
+            final firstPlaceImage =
+                (state.tripDetails?.places.isNotEmpty == true)
+                    ? state.tripDetails!.places.first.imageUrl
+                    : null;
+            final tripImage = state.tripDetails?.imageUrl;
+
+            // Fallback to a placeholder if everything else is missing
+            final heroImageUrl = firstPlaceImage?.isNotEmpty == true
+                ? firstPlaceImage!
+                : tripImage?.isNotEmpty == true
+                    ? tripImage!
+                    : 'https://images.unsplash.com/photo-1541370976299-4d24ebbc9077?w=800';
+
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                children: [
+                  Image.network(
+                    heroImageUrl,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 180,
+                      color: AppColors.backgroundGrey,
+                      child: const Center(child: Icon(Icons.image, size: 48)),
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(16)),
+                      ),
+                      child: Column(
                         children: [
-                          Text('${state.totalItems} Items',
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, fontWeight: FontWeight.w600)),
-                          Text('${(state.progress * 100).toInt()}%',
-                              style: GoogleFonts.inter(
-                                  fontSize: 14, fontWeight: FontWeight.w600)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('${state.totalItems} Items',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600)),
+                              Text('${(state.progress * 100).toInt()}%',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: state.progress,
+                              backgroundColor: AppColors.cardBorder,
+                              color: AppColors.primaryPink,
+                              minHeight: 6,
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: state.progress,
-                          backgroundColor: AppColors.cardBorder,
-                          color: AppColors.primaryPink,
-                          minHeight: 6,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
         const SizedBox(height: 20),
 

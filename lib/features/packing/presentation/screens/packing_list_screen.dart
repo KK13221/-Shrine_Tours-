@@ -174,7 +174,16 @@ class PackingListScreen extends StatelessWidget {
                       : () {
                           final tripPlanState =
                               context.read<TripPlanningBloc>().state;
-                          final tripId = tripPlanState.createdTrip?.id ?? '';
+
+                          // Resolve tripId from all possible sources:
+                          // 1. Creation flow  → createdTrip.id
+                          // 2. Modify flow    → selectedTripDetails.id
+                          // 3. Modify flow    → editingTripId (set by FetchTripById)
+                          final tripId = (tripPlanState.createdTrip?.id ?? '').isNotEmpty
+                              ? tripPlanState.createdTrip!.id
+                              : (tripPlanState.selectedTripDetails?.id ?? '').isNotEmpty
+                                  ? tripPlanState.selectedTripDetails!.id
+                                  : tripPlanState.editingTripId ?? '';
 
                           if (tripId.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -190,8 +199,6 @@ class PackingListScreen extends StatelessWidget {
                                   transports: state.selectedTransports,
                                 ),
                               );
-
-                          //context.push('/checking-packing');
                         },
                 ),
               ),

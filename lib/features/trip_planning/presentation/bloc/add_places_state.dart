@@ -21,6 +21,10 @@ class AddPlacesLoaded extends AddPlacesState {
   final List<Place> places;
   final List<Place> suggestedPlaces;
   final Set<String> selectedPlaceIds;
+  final Set<String> alreadyAddedPlaceIds;
+  final List<Place> searchResults;
+  final bool isSearching;
+  final String? searchError;
   final String? message;
 
   const AddPlacesLoaded({
@@ -29,6 +33,10 @@ class AddPlacesLoaded extends AddPlacesState {
     required this.places,
     required this.suggestedPlaces,
     required this.selectedPlaceIds,
+    this.alreadyAddedPlaceIds = const {},
+    this.searchResults = const [],
+    this.isSearching = false,
+    this.searchError,
     this.message,
   });
 
@@ -38,6 +46,10 @@ class AddPlacesLoaded extends AddPlacesState {
     List<Place>? places,
     List<Place>? suggestedPlaces,
     Set<String>? selectedPlaceIds,
+    Set<String>? alreadyAddedPlaceIds,
+    List<Place>? searchResults,
+    bool? isSearching,
+    String? searchError,
     String? message,
   }) {
     return AddPlacesLoaded(
@@ -46,12 +58,27 @@ class AddPlacesLoaded extends AddPlacesState {
       places: places ?? this.places,
       suggestedPlaces: suggestedPlaces ?? this.suggestedPlaces,
       selectedPlaceIds: selectedPlaceIds ?? this.selectedPlaceIds,
+      alreadyAddedPlaceIds: alreadyAddedPlaceIds ?? this.alreadyAddedPlaceIds,
+      searchResults: searchResults ?? this.searchResults,
+      isSearching: isSearching ?? this.isSearching,
+      searchError: searchError,
       message: message,
     );
   }
 
   @override
-  List<Object?> get props => [city, tripId, places, suggestedPlaces, selectedPlaceIds, message];
+  List<Object?> get props => [
+        city,
+        tripId,
+        places,
+        suggestedPlaces,
+        selectedPlaceIds,
+        alreadyAddedPlaceIds,
+        searchResults,
+        isSearching,
+        searchError,
+        message
+      ];
 }
 
 class AddPlacesFailure extends AddPlacesState {

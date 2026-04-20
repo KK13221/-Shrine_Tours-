@@ -1,6 +1,7 @@
 import 'package:shrine_tours/core/api/api_client.dart';
 import 'package:shrine_tours/core/api/api_constants.dart';
 import 'package:shrine_tours/features/trip_planning/data/model/trips.dart';
+import 'package:shrine_tours/features/trip_planning/data/model/trip_detail_response.dart';
 
 abstract class TripsDataSource {
   /// Fetch trips from API
@@ -17,6 +18,9 @@ abstract class TripsDataSource {
 
   /// Delete a trip by id
   Future<void> deleteTrip(String tripId);
+
+  /// Get trip by id
+  Future<TripDetailResponse> getTripById(String tripId);
 }
 
 class TripsDataSourceImpl implements TripsDataSource {
@@ -82,6 +86,18 @@ class TripsDataSourceImpl implements TripsDataSource {
       return;
     } else {
       throw Exception(response?['message'] ?? 'Failed to delete trip');
+    }
+  }
+
+  @override
+  Future<TripDetailResponse> getTripById(String tripId) async {
+    final response = await _apiClient.get(ApiConstants.tripById + tripId);
+
+    if (response != null && response['success'] == true) {
+      final data = response['data'] as Map<String, dynamic>;
+      return TripDetailResponse.fromJson(data);
+    } else {
+      throw Exception(response?['message'] ?? 'Failed to fetch trip details');
     }
   }
 }

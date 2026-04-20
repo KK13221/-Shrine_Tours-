@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 import 'package:shrine_tours/core/failures.dart';
 import 'package:shrine_tours/features/trip_planning/data/model/trips.dart';
+import 'package:shrine_tours/features/trip_planning/data/model/place.dart';
 import 'package:shrine_tours/features/trip_planning/data/repository/trips_repository.dart';
 
 class UpdateTripParams {
@@ -12,6 +13,7 @@ class UpdateTripParams {
   final int kids;
   final int tripStyle;
   final String purposeOfTravel;
+  final Place? startingPoint;
 
   UpdateTripParams({
     required this.id,
@@ -22,6 +24,7 @@ class UpdateTripParams {
     required this.kids,
     required this.tripStyle,
     required this.purposeOfTravel,
+    this.startingPoint,
   });
 }
 

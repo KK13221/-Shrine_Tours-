@@ -45,11 +45,34 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
   ];
 
   Future<void> _pickDate(bool isStart) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    DateTime initialDate;
+    DateTime firstDate;
+    DateTime lastDate = today.add(const Duration(days: 365 * 2)); // Allow planning up to 2 years ahead
+
+    if (isStart) {
+      firstDate = today;
+      initialDate = _startDate ?? today;
+      if (initialDate.isBefore(firstDate)) {
+        initialDate = firstDate;
+      }
+    } else {
+      // End date must be at least 1 day after start date
+      // If start date is not yet selected, use tomorrow as the baseline
+      firstDate = (_startDate ?? today).add(const Duration(days: 1));
+      initialDate = _endDate ?? firstDate;
+      if (initialDate.isBefore(firstDate)) {
+        initialDate = firstDate;
+      }
+    }
+
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 7)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -60,10 +83,15 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
         );
       },
     );
+
     if (date != null) {
       setState(() {
         if (isStart) {
           _startDate = date;
+          // Reset end date if it is no longer valid (must be after new start date)
+          if (_endDate != null && !_endDate!.isAfter(_startDate!)) {
+            _endDate = null;
+          }
         } else {
           _endDate = date;
         }

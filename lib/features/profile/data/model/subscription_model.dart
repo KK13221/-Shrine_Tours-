@@ -13,6 +13,13 @@ class SubscriptionModel extends Equatable {
     required this.features,
   });
 
+  static const SubscriptionModel free = SubscriptionModel(
+    plan: 'free',
+    status: 'inactive',
+    renewsAt: '',
+    features: [],
+  );
+
   factory SubscriptionModel.fromJson(Map<String, dynamic> json) {
     return SubscriptionModel(
       plan: json['plan'] as String? ?? 'free',

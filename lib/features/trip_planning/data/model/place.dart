@@ -9,7 +9,7 @@ class Place extends Equatable {
   final double rating;
   final int reviewsCount;
   final bool verified;
-
+  // description field removed as per user request
   final double latitude;
   final double longitude;
 
@@ -51,6 +51,8 @@ class Place extends Equatable {
       'rating': rating,
       'reviewsCount': reviewsCount,
       'verified': verified,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -64,5 +66,7 @@ class Place extends Equatable {
         rating,
         reviewsCount,
         verified,
+        latitude,
+        longitude,
       ];
 }

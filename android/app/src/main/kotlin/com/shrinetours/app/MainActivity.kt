@@ -1,4 +1,4 @@
-package com.example.shrine_tours
+package com.shrinetours.app
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/get_trips_usecase.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
@@ -23,8 +25,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  final _googleSignIn = GoogleSignIn();
-  
+  final _googleSignIn = getIt<GoogleSignIn>();
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -38,18 +40,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-    Future<void> _handleGoogleSignIn() async {
+  Future<void> _handleGoogleSignIn() async {
     try {
+      await _googleSignIn.signOut();
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return; // User cancelled
-      
+
       final email = googleUser.email;
       final name = googleUser.displayName ?? '';
-      
+
       if (mounted) {
         context.read<AuthBloc>().add(
-          GoogleSignInRequested(email: email, name: name),
-        );
+              GoogleSignInRequested(email: email, name: name),
+            );
       }
     } catch (e) {
       if (mounted) {
@@ -63,9 +66,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is AuthAuthenticated) {
-          context.go('/itineraries');
+          // Check if user has trips to decide where to navigate
+          final tripsResult = await getIt<GetTripsUseCase>().call();
+
+          if (mounted) {
+            tripsResult.fold(
+              (failure) {
+                // If failed to fetch trips, default to itineraries
+                context.go('/itineraries');
+              },
+              (trips) {
+                if (trips.isEmpty) {
+                  context.go('/plan-trip');
+                } else {
+                  context.go('/itineraries');
+                }
+              },
+            );
+          }
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message)),
@@ -83,7 +103,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 // Back button
                 GestureDetector(
                   onTap: () => context.pop(),
-                  child: const Icon(Icons.chevron_left, size: 28, color: AppColors.textDark),
+                  child: const Icon(Icons.chevron_left,
+                      size: 28, color: AppColors.textDark),
                 ),
                 const SizedBox(height: 24),
                 // Create Account
@@ -100,11 +121,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   'Sign up to start planning your adventures',
                   style: GoogleFonts.inter(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.7),
                   ),
                 ),
                 const SizedBox(height: 32),
-                
+
                 // Google Sign In
                 SizedBox(
                   width: double.infinity,
@@ -115,8 +139,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
                       height: 24,
                       errorBuilder: (context, error, stackTrace) {
-                         // Fallback text icon if network isn't available
-                         return const Text('G', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700));
+                        // Fallback text icon if network isn't available
+                        return const Text('G',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.w700));
                       },
                     ),
                     label: Text(
@@ -136,7 +162,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Divider with "or"
                 Row(
                   children: [
@@ -145,14 +171,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'or',
-                        style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMuted),
+                        style: GoogleFonts.inter(
+                            fontSize: 14, color: AppColors.textMuted),
                       ),
                     ),
                     Expanded(child: Divider(color: AppColors.cardBorder)),
                   ],
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Name
                 CustomTextField(
                   label: 'Name',
@@ -162,7 +189,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   keyboardType: TextInputType.name,
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Email
                 CustomTextField(
                   label: 'Email',
@@ -172,7 +199,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Phone
                 CustomTextField(
                   label: 'Phone',
@@ -182,13 +209,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   keyboardType: TextInputType.phone,
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Password
                 CustomTextField(
                   label: 'Password',
                   hint: '••••••••',
                   prefixIcon: Icons.lock_outline,
-                  suffixIcon: _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  suffixIcon: _obscurePassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   obscureText: _obscurePassword,
                   controller: _passwordController,
                   onSuffixTap: () {
@@ -196,21 +225,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   },
                 ),
                 const SizedBox(height: 20),
-                
+
                 // Confirm Password
                 CustomTextField(
                   label: 'Confirm Password',
                   hint: '••••••••',
                   prefixIcon: Icons.lock_outline,
-                  suffixIcon: _obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  suffixIcon: _obscureConfirmPassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   obscureText: _obscureConfirmPassword,
                   controller: _confirmPasswordController,
                   onSuffixTap: () {
-                    setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                    setState(() =>
+                        _obscureConfirmPassword = !_obscureConfirmPassword);
                   },
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Terms and Conditions Text
                 Center(
                   child: RichText(
@@ -221,14 +253,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       children: [
-                        const TextSpan(text: 'By signing up, you agree to our '),
+                        const TextSpan(
+                            text: 'By signing up, you agree to our '),
                         TextSpan(
                           text: 'Terms of Service',
                           style: GoogleFonts.inter(
                             color: AppColors.primaryPink,
                             fontWeight: FontWeight.w500,
                           ),
-                          recognizer: TapGestureRecognizer()..onTap = () => context.push('/terms'),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => context.push('/terms'),
                         ),
                         const TextSpan(text: ' and\n'),
                         TextSpan(
@@ -237,14 +271,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             color: AppColors.primaryPink,
                             fontWeight: FontWeight.w500,
                           ),
-                          recognizer: TapGestureRecognizer()..onTap = () => context.push('/privacy-policy'),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () => context.push('/privacy-policy'),
                         ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Sign Up Button
                 BlocBuilder<AuthBloc, AuthState>(
                   builder: (context, state) {
@@ -253,27 +288,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       isLoading: state is AuthLoading,
                       onPressed: () {
                         // Validate passwords match before signing up
-                        if (_passwordController.text != _confirmPasswordController.text) {
+                        if (_passwordController.text !=
+                            _confirmPasswordController.text) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Passwords do not match')),
+                            const SnackBar(
+                                content: Text('Passwords do not match')),
                           );
                           return;
                         }
-                        
+
                         context.read<AuthBloc>().add(
-                          SignUpRequested(
-                            name: _nameController.text.trim(),
-                            email: _emailController.text.trim(),
-                            phone: _phoneController.text.trim(),
-                            password: _passwordController.text,
-                          ),
-                        );
+                              SignUpRequested(
+                                name: _nameController.text.trim(),
+                                email: _emailController.text.trim(),
+                                phone: _phoneController.text.trim(),
+                                password: _passwordController.text,
+                              ),
+                            );
                       },
                     );
                   },
                 ),
                 const SizedBox(height: 24),
-                
+
                 // Sign in link
                 Center(
                   child: Row(
@@ -281,7 +318,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: GoogleFonts.inter(fontSize: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                        style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.7)),
                       ),
                       GestureDetector(
                         onTap: () => context.go('/sign-in'),

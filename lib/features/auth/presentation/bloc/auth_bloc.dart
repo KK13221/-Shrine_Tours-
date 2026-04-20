@@ -35,7 +35,11 @@ class SignUpRequested extends AuthEvent {
   final String email;
   final String phone;
   final String password;
-  const SignUpRequested({required this.name, required this.email, required this.phone, required this.password});
+  const SignUpRequested(
+      {required this.name,
+      required this.email,
+      required this.phone,
+      required this.password});
   @override
   List<Object?> get props => [name, email, phone, password];
 }
@@ -55,13 +59,14 @@ class AuthLoading extends AuthState {}
 
 class AuthAuthenticated extends AuthState {
   final User user;
-  const AuthAuthenticated({required this.user,});
+  const AuthAuthenticated({
+    required this.user,
+  });
   @override
   List<Object?> get props => [user];
 }
 
 class AuthUnauthenticated extends AuthState {}
-
 
 class AuthError extends AuthState {
   final String message;
@@ -72,12 +77,12 @@ class AuthError extends AuthState {
 
 // BLoC
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-
   final AuthRepository _repository;
   final _storage = getIt<TokenStorageRepo>();
 
-  AuthBloc({required AuthRepository repository}) :
-        _repository = repository,  super(AuthInitial()) {
+  AuthBloc({required AuthRepository repository})
+      : _repository = repository,
+        super(AuthInitial()) {
     on<SignInRequested>(_onSignIn);
     on<GoogleSignInRequested>(_onGoogleSignIn);
     on<SignUpRequested>(_onSignUp);
@@ -91,20 +96,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       email: event.email,
       password: event.password,
     );
-    
+
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthAuthenticated(user: user)),
     );
   }
 
-  Future<void> _onGoogleSignIn(GoogleSignInRequested event, Emitter<AuthState> emit) async {
+  Future<void> _onGoogleSignIn(
+      GoogleSignInRequested event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     final result = await _repository.googleSignIn(
       email: event.email,
       name: event.name,
     );
-    
+
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthAuthenticated(user: user)),
@@ -119,27 +125,40 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       phone: event.phone,
       password: event.password,
     );
-    
+
     result.fold(
       (failure) => emit(AuthError(message: failure.message)),
       (user) => emit(AuthAuthenticated(user: user)),
     );
   }
 
-  Future<void> _onSignOut(SignOutRequested event, Emitter<AuthState> emit) async {
-    await _storage.clearPreferences();
-    emit(AuthUnauthenticated());
+  Future<void> _onSignOut(
+      SignOutRequested event, Emitter<AuthState> emit) async {
+    final response = await _repository.logOut();
+
+    await response.fold(
+      (failure) async {
+        emit(AuthError(message: failure.message));
+      },
+      (success) async {
+        await _repository.googleSignOut();
+        await _storage.clearPreferences();
+        emit(AuthUnauthenticated());
+      },
+    );
   }
 
   // SPLASH
-    Future<void> _onAppStarted(
+  Future<void> _onAppStarted(
     AppStarted event,
     Emitter<AuthState> emit,
   ) async {
     emit(AuthLoading());
- 
+
+    await _repository.googleSignInSilently();
+
     final user = await _repository.restoreSession();
- 
+
     if (user != null) {
       emit(AuthAuthenticated(user: user));
     } else {

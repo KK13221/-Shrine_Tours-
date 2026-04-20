@@ -13,8 +13,7 @@ import 'package:shrine_tours/features/payment/domain/usecases/download_invoice_u
 import 'package:shrine_tours/features/payment/data/models/payment_models.dart';
 import 'package:shrine_tours/features/profile/data/model/subscription_model.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:open_file/open_file.dart';
-
+import 'package:open_filex/open_filex.dart';
 
 class PaymentCard {
   final String type;
@@ -97,18 +96,19 @@ class ProfileState extends Equatable {
     this.downloadingInvoiceId,
     this.error,
     this.hasError = false,
-  }) : profile = profile ?? const UserProfileModel(
-    id: '',
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 234 567 8900',
-    dob: '01/01/1990',
-    avatarUrl: 'https://picsum.photos/250?image=9',
-    level: 'Explorer',
-    levelProgress: 0.75,
-    tripsCompleted: 5,
-    premium: true,
-  );
+  }) : profile = profile ??
+            const UserProfileModel(
+              id: '',
+              name: 'John Doe',
+              email: 'john.doe@example.com',
+              phone: '+1 234 567 8900',
+              dob: '01/01/1990',
+              avatarUrl: 'https://picsum.photos/250?image=9',
+              level: 'Explorer',
+              levelProgress: 0.0,
+              tripsCompleted: 0,
+              premium: false,
+            );
 
   ProfileState copyWith({
     UserProfileModel? profile,
@@ -189,11 +189,14 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     final result = await _getSubscriptionUseCase.call();
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        isLoading: false,
-        hasError: true,
-        error: failure.message,
-      )),
+      (failure) {
+        // If subscription is not found or fails, treat as free plan
+        emit(state.copyWith(
+          isLoading: false,
+          subscription: SubscriptionModel.free,
+          hasError: false, // Don't show technical error for "Subscription not found"
+        ));
+      },
       (subscription) => emit(state.copyWith(
         isLoading: false,
         subscription: subscription,
@@ -201,11 +204,12 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     );
   }
 
-  Future<void> _onLoadProfile(LoadProfile event, Emitter<ProfileState> emit) async {
+  Future<void> _onLoadProfile(
+      LoadProfile event, Emitter<ProfileState> emit) async {
     emit(state.copyWith(isLoading: true, hasError: false, error: null));
-    
+
     final result = await _getProfileUseCase.call();
-    
+
     result.fold(
       (failure) {
         // Error case
@@ -223,10 +227,11 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
             id: profileModel.id,
             name: profileModel.name,
             email: profileModel.email,
+            premium: profileModel.premium,
             profilePictureUrl: profileModel.avatarUrl,
           ),
         );
-        
+
         emit(state.copyWith(
           isLoading: false,
           profile: profileModel,
@@ -237,7 +242,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     );
   }
 
-  Future<void> _onUpdateProfile(UpdateProfile event, Emitter<ProfileState> emit) async {
+  Future<void> _onUpdateProfile(
+      UpdateProfile event, Emitter<ProfileState> emit) async {
     emit(state.copyWith(isSaving: true, hasError: false, error: null));
 
     final profileData = {
@@ -277,7 +283,8 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     );
   }
 
-  Future<void> _onUploadAvatar(UploadAvatar event, Emitter<ProfileState> emit) async {
+  Future<void> _onUploadAvatar(
+      UploadAvatar event, Emitter<ProfileState> emit) async {
     emit(state.copyWith(isUploadingAvatar: true, hasError: false, error: null));
 
     final result = await _uploadAvatarUseCase.call(event.filePath);
@@ -311,11 +318,21 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     );
   }
 
-  Future<void> _onLoadCards(LoadPaymentCards event, Emitter<ProfileState> emit) async {
+  Future<void> _onLoadCards(
+      LoadPaymentCards event, Emitter<ProfileState> emit) async {
     emit(state.copyWith(
       cards: const [
-        PaymentCard(type: 'VISA', lastFour: '4532', holderName: 'JOHN DOE', expiry: '12/25', isPrimary: true),
-        PaymentCard(type: 'MC', lastFour: '8976', holderName: 'JOHN DOE', expiry: '08/26'),
+        PaymentCard(
+            type: 'VISA',
+            lastFour: '4532',
+            holderName: 'JOHN DOE',
+            expiry: '12/25',
+            isPrimary: true),
+        PaymentCard(
+            type: 'MC',
+            lastFour: '8976',
+            holderName: 'JOHN DOE',
+            expiry: '08/26'),
       ],
     ));
   }
@@ -348,9 +365,13 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
       final directory = await getApplicationDocumentsDirectory();
       final savePath = '${directory.path}/invoice_${event.invoiceId}.pdf';
 
-      final result = await _downloadInvoiceUseCase.call(
+      final result = await _downloadInvoiceUseCase
+          .call(
         DownloadInvoiceParams(id: event.invoiceId, savePath: savePath),
-      );
+      )
+          .timeout(const Duration(seconds: 30), onTimeout: () {
+        throw Exception('Download timed out. Please try again.');
+      });
 
       result.fold(
         (failure) => emit(state.copyWith(
@@ -363,7 +384,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
             downloadingInvoiceId: null,
           ));
           // Open the file after successful download
-          OpenFile.open(savePath);
+          OpenFilex.open(savePath);
         },
       );
     } catch (e) {

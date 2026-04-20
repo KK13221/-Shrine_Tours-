@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shrine_tours/core/widgets/title_case.dart';
 import '../theme/app_theme.dart';
 
 class TripCard extends StatelessWidget {
@@ -44,7 +45,8 @@ class TripCard extends StatelessWidget {
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
                   child: Image.network(
                     imageUrl,
                     height: 160,
@@ -54,7 +56,8 @@ class TripCard extends StatelessWidget {
                       height: 160,
                       color: AppColors.backgroundGrey,
                       child: const Center(
-                        child: Icon(Icons.image, size: 48, color: AppColors.textMuted),
+                        child: Icon(Icons.image,
+                            size: 48, color: AppColors.textMuted),
                       ),
                     ),
                   ),
@@ -63,7 +66,8 @@ class TripCard extends StatelessWidget {
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -92,7 +96,7 @@ class TripCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    cityName,
+                    TitleCase.toTitleCase(cityName),
                     style: GoogleFonts.inter(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
@@ -102,7 +106,8 @@ class TripCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textMuted),
+                      Icon(Icons.calendar_today_outlined,
+                          size: 14, color: AppColors.textMuted),
                       const SizedBox(width: 6),
                       Text(
                         dateRange,
@@ -116,7 +121,8 @@ class TripCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.location_on_outlined, size: 14, color: AppColors.textMuted),
+                      Icon(Icons.location_on_outlined,
+                          size: 14, color: AppColors.textMuted),
                       const SizedBox(width: 6),
                       Text(
                         '$places places to visit',

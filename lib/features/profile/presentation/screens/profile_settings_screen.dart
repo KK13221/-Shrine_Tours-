@@ -23,6 +23,21 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   late TextEditingController _phoneController;
   late TextEditingController _dobController;
 
+  String selectedCountryCode = '+91';
+
+  final List<Map<String, String>> countryCodes = [
+    {'code': '+91', 'country': 'India', 'flag': '🇮🇳'},
+    {'code': '+1', 'country': 'USA', 'flag': '🇺🇸'},
+    {'code': '+92', 'country': 'Pakistan', 'flag': '🇵🇰'},
+    {'code': '+880', 'country': 'Bangladesh', 'flag': '🇧🇩'},
+    {'code': '+971', 'country': 'UAE', 'flag': '🇦🇪'},
+    {'code': '+44', 'country': 'UK', 'flag': '🇬🇧'},
+    {'code': '+61', 'country': 'Australia', 'flag': '🇦🇺'},
+    {'code': '+81', 'country': 'Japan', 'flag': '🇯🇵'},
+    {'code': '+86', 'country': 'China', 'flag': '🇨🇳'},
+    {'code': '+94', 'country': 'Sri Lanka', 'flag': '🇱🇰'},
+  ];
+
   File? _pickedImageFile;
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -181,109 +196,227 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         },
         child: BlocBuilder<ProfileBloc, ProfileState>(
           builder: (context, state) {
-          // ── Seed controllers once after LoadProfile completes ─────────────
-          // Only update if controllers are still showing the default/empty
-          // values to avoid overwriting user edits mid-session.
-          // When API is ready this block will naturally populate from the
-          // real API response via state.profile.
-          if (!state.isLoading && _nameController.text.isEmpty) {
-            _nameController.text = state.profile.name;
-            _emailController.text = state.profile.email;
-            _phoneController.text = state.profile.phone;
-            _dobController.text = state.profile.dob;
-          }
+            // ── Seed controllers once after LoadProfile completes ─────────────
+            // Only update if controllers are still showing the default/empty
+            // values to avoid overwriting user edits mid-session.
+            // When API is ready this block will naturally populate from the
+            // real API response via state.profile.
+            if (!state.isLoading && _nameController.text.isEmpty) {
+              _nameController.text = state.profile.name;
+              _emailController.text = state.profile.email;
+              _phoneController.text = state.profile.phone;
+              _dobController.text = state.profile.dob;
+            }
 
-          if (state.isLoading) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primaryPink),
-            );
-          }
+            if (state.isLoading) {
+              return const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryPink),
+              );
+            }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Avatar ─────────────────────────────────────────────────
-                // Initials come from state.profile.name.
-                // Photo comes from _pickedImageFile (local for now).
-                // TODO: Also pass state.profile.photoUrl when API is ready.
-                Center(
-                  child: Column(
-                    children: [
-                      GestureDetector(
-                        onTap: state.isUploadingAvatar ? null : _showPhotoOptions,
-                        child: Stack(
-                          children: [
-                            _ProfileAvatar(
-                              imageFile: _pickedImageFile,
-                              photoUrl: state.profile.avatarUrl,
-                              initials: _getInitials(state.profile.name),
-                            ),
-                            if (state.isUploadingAvatar)
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.5),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.primaryPink,
-                                      strokeWidth: 2,
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Avatar ─────────────────────────────────────────────────
+                  // Initials come from state.profile.name.
+                  // Photo comes from _pickedImageFile (local for now).
+                  // TODO: Also pass state.profile.photoUrl when API is ready.
+                  Center(
+                    child: Column(
+                      children: [
+                        GestureDetector(
+                          onTap: state.isUploadingAvatar
+                              ? null
+                              : _showPhotoOptions,
+                          child: Stack(
+                            children: [
+                              _ProfileAvatar(
+                                imageFile: _pickedImageFile,
+                                photoUrl: state.profile.avatarUrl,
+                                initials: _getInitials(state.profile.name),
+                              ),
+                              if (state.isUploadingAvatar)
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.primaryPink,
+                                        strokeWidth: 2,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      GestureDetector(
-                        onTap: state.isUploadingAvatar ? null : _showPhotoOptions,
-                        child: Text(
-                          state.isUploadingAvatar ? 'Uploading...' : 'Change Photo',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: state.isUploadingAvatar ? AppColors.textMuted : AppColors.primaryPink,
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: state.isUploadingAvatar
+                              ? null
+                              : _showPhotoOptions,
+                          child: Text(
+                            state.isUploadingAvatar
+                                ? 'Uploading...'
+                                : 'Change Photo',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: state.isUploadingAvatar
+                                  ? AppColors.textMuted
+                                  : AppColors.primaryPink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 32),
+                  const SizedBox(height: 32),
 
-                // ── Fields ─────────────────────────────────────────────────
-                _buildField(context, 'Full Name', _nameController),
-                const SizedBox(height: 20),
-                _buildField(context, 'Email', _emailController),
-                const SizedBox(height: 20),
-                _buildField(context, 'Phone Number', _phoneController),
-                const SizedBox(height: 20),
-                _buildField(context, 'Date of Birth', _dobController),
-                const SizedBox(height: 32),
+                  // ── Fields ─────────────────────────────────────────────────
+                  _buildField(context, 'Full Name', _nameController),
+                  const SizedBox(height: 20),
+                  _buildField(context, 'Email', _emailController),
+                  const SizedBox(height: 20),
+                  _buildPhoneField(context),
+                  const SizedBox(height: 20),
+                  _buildField(context, 'Date of Birth', _dobController),
+                  const SizedBox(height: 32),
 
-                // ── Save button ────────────────────────────────────────────
-                PrimaryButton(
-                  text: 'Save Changes',
-                  isLoading: state.isSaving,
-                  onPressed: () {
-                    context.read<ProfileBloc>().add(UpdateProfile(
-                          name: _nameController.text,
-                          email: _emailController.text,
-                          phone: _phoneController.text,
-                          dob: _dobController.text,
-                        ));
-                  },
-                ),
-              ],
-            ),
-          );
-        },
+                  // ── Save button ────────────────────────────────────────────
+                  PrimaryButton(
+                    text: 'Save Changes',
+                    isLoading: state.isSaving,
+                    onPressed: () {
+                      context.read<ProfileBloc>().add(UpdateProfile(
+                            name: _nameController.text,
+                            email: _emailController.text,
+                            phone: _phoneController.text,
+                            dob: _dobController.text,
+                          ));
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
+    );
+  }
+
+  /// PHONE FIELD
+  Widget _buildPhoneField(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor = isDark ? Colors.white60 : AppColors.textMuted;
+    final textColor = isDark ? Colors.white : AppColors.textDark;
+    final fillColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final borderColor = isDark ? Colors.white12 : AppColors.cardBorder;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Phone Number',
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: labelColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: fillColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              /// 🔥 COUNTRY CODE DROPDOWN
+              Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: DropdownButton<String>(
+                    value: selectedCountryCode,
+                    dropdownColor: fillColor,
+                    style: GoogleFonts.inter(color: textColor),
+                    icon: const Icon(Icons.arrow_drop_down),
+                    selectedItemBuilder: (context) {
+                      return countryCodes.map((country) {
+                        return Row(
+                          children: [
+                            Text(country['flag']!,
+                                style: const TextStyle(fontSize: 16)),
+                            const SizedBox(width: 6),
+                            Text(
+                              country['code']!,
+                              style: GoogleFonts.inter(color: textColor),
+                            ),
+                          ],
+                        );
+                      }).toList();
+                    },
+                    items: countryCodes.map((country) {
+                      return DropdownMenuItem<String>(
+                        value: country['code'], // ✅ ONLY CODE stored
+                        child: Row(
+                          children: [
+                            Text(country['flag']!,
+                                style: const TextStyle(fontSize: 16)),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${country['code']}',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: textColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedCountryCode = value!;
+                      });
+                    },
+                  )),
+
+              /// Divider
+              Container(
+                height: 24,
+                width: 1,
+                color: borderColor,
+              ),
+
+              /// 🔥 PHONE INPUT
+              Expanded(
+                child: TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    color: textColor,
+                  ),
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: InputBorder.none,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    hintText: 'Enter phone number',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -353,9 +486,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 // ─────────────────────────────────────────────
 
 class _ProfileAvatar extends StatelessWidget {
-  final File? imageFile;       // local picked file — overrides everything
-  final String? photoUrl;      // from state.profile.profilePictureUrl
-  final String initials;       // fallback
+  final File? imageFile; // local picked file — overrides everything
+  final String? photoUrl; // from state.profile.profilePictureUrl
+  final String initials; // fallback
 
   const _ProfileAvatar({
     required this.initials,
@@ -483,8 +616,7 @@ class _PhotoPickerSheet extends StatelessWidget {
               ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Row(
                 children: [
                   Text(
@@ -518,18 +650,18 @@ class _PhotoPickerSheet extends StatelessWidget {
               subtitleColor: subtitleColor,
               onTap: onChooseFromGallery,
             ),
-            if (onRemovePhoto != null) ...[
-              Divider(height: 1, color: dividerColor, indent: 60),
-              _SheetOption(
-                icon: Icons.delete_outline,
-                label: 'Remove Photo',
-                subtitle: 'Revert to initials',
-                iconColor: Colors.red,
-                textColor: Colors.red,
-                subtitleColor: subtitleColor,
-                onTap: onRemovePhoto!,
-              ),
-            ],
+            // if (onRemovePhoto != null) ...[
+            //   Divider(height: 1, color: dividerColor, indent: 60),
+            //   _SheetOption(
+            //     icon: Icons.delete_outline,
+            //     label: 'Remove Photo',
+            //     subtitle: 'Revert to initials',
+            //     iconColor: Colors.red,
+            //     textColor: Colors.red,
+            //     subtitleColor: subtitleColor,
+            //     onTap: onRemovePhoto!,
+            //   ),
+            // ],
             const SizedBox(height: 12),
           ],
         ),
@@ -585,8 +717,8 @@ class _SheetOption extends StatelessWidget {
                         color: textColor)),
                 const SizedBox(height: 2),
                 Text(subtitle,
-                    style: GoogleFonts.inter(
-                        fontSize: 12, color: subtitleColor)),
+                    style:
+                        GoogleFonts.inter(fontSize: 12, color: subtitleColor)),
               ],
             ),
             const Spacer(),

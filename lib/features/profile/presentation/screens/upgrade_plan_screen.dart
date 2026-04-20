@@ -9,6 +9,8 @@ import '../../../payment/presentation/bloc/payment_bloc.dart';
 import '../../../payment/presentation/bloc/payment_event.dart';
 import '../../../payment/presentation/bloc/payment_state.dart';
 import '../../../payment/service/razorpay_service.dart';
+import '../../../../core/di/injection.dart';
+import '../../../auth/domain/repositories/token_storage_repo.dart';
 import '../bloc/profile_bloc.dart';
 
 class UpgradePlanScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   void initState() {
     super.initState();
     context.read<ProfileBloc>().add(LoadSubscription());
+    context.read<ProfileBloc>().add(LoadProfile());
 
     _razorpayService.init(
       onSuccess: (response) {
@@ -77,8 +80,8 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
   Widget build(BuildContext context) {
     return BlocBuilder<ProfileBloc, ProfileState>(
       builder: (context, state) {
+        final isPremium = state.profile.premium;
         final sub = state.subscription;
-        final currentPlanLower = sub?.plan.toLowerCase() ?? 'free';
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
@@ -109,13 +112,15 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
               if (paymentState is PaymentOrderCreatedSuccess) {
                 final orderData = paymentState.response.data;
                 if (orderData != null) {
+                  debugPrint(
+                      'Razorpay Amount (Paise): ${(orderData.amount * 100).toInt()}');
                   _razorpayService.openCheckout(
                     key: ApiConstants.razorpayKeyId,
-                    amount: orderData.amount.toInt(),
+                    amount: (orderData.amount * 100).toInt(),
                     orderId: orderData.razorpayOrderId,
                     name: 'Shrine Tours',
                     email: state.profile.email,
-                    contact: '',
+                    contact: getIt<TokenStorageRepo>().userPhone ?? '',
                   );
                 }
               } else if (paymentState is PaymentVerifiedSuccess) {
@@ -188,65 +193,82 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Premium Plan Card
-                        if (currentPlanLower != 'premium') ...[
-                          _PlanCard(
-                            title: 'Premium',
-                            subtitle: 'For enthusiasts',
-                            price: '\$9.99',
-                            cycle: '/month',
-                            isPopular: false,
-                            isActive: false,
-                            features: const [
-                              'AI-powered optimization',
-                              'Offline access',
-                              'Priority customer support'
-                            ],
-                            onPressed: () {
-                              context.read<PaymentBloc>().add(
-                                  const CreatePaymentOrderEvent(
-                                      'Premium_plan'));
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // Enterprise Plan Card
+                        // Free Plan Card
                         _PlanCard(
-                          title: 'Enterprise',
-                          subtitle: 'For power users',
-                          price: '\$19.99',
+                          title: 'Free',
+                          subtitle: 'Basic access',
+                          price: '\INR 0.00',
+                          cycle: '/month',
+                          isPopular: false,
+                          isActive: !isPremium,
+                          features: const [
+                            'Create up to 2 Trips',
+                            'Unlimited manual modifications',
+                            'AI Optimization (1 time limit)',
+                            'Basic map routes',
+                          ],
+                          onPressed: () {}, // No action needed for free
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Premium Plan Card
+                        _PlanCard(
+                          title: 'Premium',
+                          subtitle: 'For enthusiasts',
+                          price: '\INR 925',
                           cycle: '/month',
                           isPopular: true,
-                          isActive: currentPlanLower == 'enterprise',
-                          renewDate: sub?.renewsAt,
-                          features: _features,
+                          isActive: isPremium,
+                          features: const [
+                            'Create up to 10 Trips',
+                            'Unlimited AI optimizations',
+                            'Unlimited edits on all itineraries',
+                            'Advanced analytics, Help & Chat support',
+                            'Full Access to Packing List.'
+                          ],
                           onPressed: () {
                             context.read<PaymentBloc>().add(
-                                const CreatePaymentOrderEvent(
-                                    'Enterprise_plan'));
+                                const CreatePaymentOrderEvent('Premium_plan'));
                           },
                         ),
                         const SizedBox(height: 24),
 
-                        // Lifetime Plan Card
-                        _PlanCard(
-                          title: 'Lifetime',
-                          subtitle: 'One-time payment',
-                          price: '\$99.99',
-                          cycle: 'forever',
-                          isPopular: false,
-                          isActive: currentPlanLower == 'lifetime',
-                          features: const [
-                            'Everything in Enterprise',
-                            'No recurring fees',
-                            'Early access to new features',
-                          ],
-                          onPressed: () {
-                            context.read<PaymentBloc>().add(
-                                const CreatePaymentOrderEvent('Lifetime_plan'));
-                          },
-                        ),
+                        // // Enterprise Plan Card
+                        // _PlanCard(
+                        //   title: 'Enterprise',
+                        //   subtitle: 'For power users',
+                        //   price: '\$19.99',
+                        //   cycle: '/month',
+                        //   isPopular: true,
+                        //   isActive: currentPlanLower == 'enterprise',
+                        //   renewDate: sub?.renewsAt,
+                        //   features: _features,
+                        //   onPressed: () {
+                        //     context.read<PaymentBloc>().add(
+                        //         const CreatePaymentOrderEvent(
+                        //             'Enterprise_plan'));
+                        //   },
+                        // ),
+                        // const SizedBox(height: 24),
+
+                        // // Lifetime Plan Card
+                        // _PlanCard(
+                        //   title: 'Lifetime',
+                        //   subtitle: 'One-time payment',
+                        //   price: '\$99.99',
+                        //   cycle: 'forever',
+                        //   isPopular: false,
+                        //   isActive: currentPlanLower == 'lifetime',
+                        //   features: const [
+                        //     'Everything in Enterprise',
+                        //     'No recurring fees',
+                        //     'Early access to new features',
+                        //   ],
+                        //   onPressed: () {
+                        //     context.read<PaymentBloc>().add(
+                        //         const CreatePaymentOrderEvent('Lifetime_plan'));
+                        //   },
+                        // ),
                       ],
                     ),
                   ),
@@ -428,8 +450,10 @@ class _PlanCard extends StatelessWidget {
                       ),
                     ),
                   )
-                : PrimaryButton(
-                    text: 'Upgrade to $title', onPressed: onPressed),
+                : (title.toLowerCase() == 'free' || isActive)
+                    ? const SizedBox.shrink()
+                    : PrimaryButton(
+                        text: 'Upgrade to $title', onPressed: onPressed),
           ],
         ],
       ),

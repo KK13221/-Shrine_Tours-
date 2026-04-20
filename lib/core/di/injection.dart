@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shrine_tours/features/auth/domain/repositories/auth_repository.dart';
 import 'package:shrine_tours/features/auth/domain/repositories/token_storage_repo.dart';
@@ -10,14 +11,19 @@ import 'package:shrine_tours/features/trip_planning/data/repository/trips_reposi
 import 'package:shrine_tours/features/trip_planning/domain/usecases/add_place_to_trip_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/create_trip_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/delete_trip_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/get_trip_by_id_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/get_trips_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/update_trip_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/search_places_from_google_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/get_place_details_usecase.dart';
 import 'package:shrine_tours/features/profile/data/datasource/profile_data_source.dart';
 import 'package:shrine_tours/features/trip_planning/data/datasource/places_data_source.dart';
 import 'package:shrine_tours/features/trip_planning/data/repository/places_repository.dart';
 import 'package:shrine_tours/features/trip_planning/domain/repositories/places_repository.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/get_places_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/domain/usecases/get_suggested_places_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/remove_place_from_trip_usecase.dart';
+import 'package:shrine_tours/features/trip_planning/domain/usecases/search_places_usecase.dart';
 import 'package:shrine_tours/features/trip_planning/presentation/bloc/add_places_bloc.dart';
 import 'package:shrine_tours/features/profile/domain/repositories/profile_repository.dart';
 import 'package:shrine_tours/features/profile/domain/usecases/get_profile_usecase.dart';
@@ -38,10 +44,15 @@ import '../../features/itinerary/presentation/bloc/itinerary_bloc.dart';
 import '../../features/itinerary/data/datasource/itinerary_datasource.dart';
 import '../../features/itinerary/data/repository/itinerary_repository_impl.dart';
 import '../../features/itinerary/domain/repositories/itinerary_repository.dart';
-import '../../features/itinerary/domain/usecases/generate_itinerary_usecase.dart';
-import '../../features/itinerary/domain/usecases/get_itinerary_usecase.dart';
-import '../../features/itinerary/presentation/bloc/generate_itinerary_bloc.dart';
+import '../../../../features/itinerary/domain/usecases/generate_itinerary_usecase.dart';
+import '../../../../features/itinerary/domain/usecases/get_itinerary_usecase.dart';
+import '../../../../features/itinerary/domain/usecases/modify_itinerary_usecase.dart';
+import '../../../../features/itinerary/domain/usecases/add_activity_usecase.dart';
+import '../../../../features/itinerary/domain/usecases/remove_activity_usecase.dart';
+import '../../../../features/itinerary/domain/usecases/reoptimize_itinerary_usecase.dart';
+import '../../../../features/itinerary/presentation/bloc/generate_itinerary_bloc.dart';
 import '../../features/itinerary/presentation/bloc/get_itinerary_bloc.dart';
+import '../../features/itinerary/presentation/bloc/itinerary_map_bloc.dart';
 import '../../features/packing/data/datasource/packing_datasource.dart';
 import '../../features/packing/data/repository/packing_repository_impl.dart';
 import '../../features/packing/domain/repositories/packing_repository.dart';
@@ -60,6 +71,8 @@ import '../../features/payment/domain/usecases/create_order_usecase.dart';
 import '../../features/payment/domain/usecases/verify_payment_usecase.dart';
 import '../../features/payment/domain/usecases/get_order_history_usecase.dart';
 import '../../features/payment/domain/usecases/download_invoice_usecase.dart';
+import '../../features/payment/domain/usecases/get_order_by_id_usecase.dart';
+import '../../features/payment/presentation/bloc/payment_order_detail_bloc.dart';
 import '../../features/payment/presentation/bloc/payment_bloc.dart';
 
 final getIt = GetIt.instance;
@@ -77,9 +90,15 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton(() => DioConfig.createDio());
   getIt.registerLazySingleton<ApiClient>(() => ApiClient(dio: getIt()));
 
+  getIt.registerSingleton<GoogleSignIn>(GoogleSignIn());
+
   // ── Auth repository ───────────────────────────────────────────────────────
   getIt.registerSingleton<AuthRepository>(
-    AuthRepository(getIt<TokenStorageRepo>(), getIt<ApiClient>()),
+    AuthRepository(
+      getIt<TokenStorageRepo>(),
+      getIt<ApiClient>(),
+      getIt<GoogleSignIn>(),
+    ),
   );
 
   // ── Auth Use Cases ─────────────────────────────────────────────────────────
@@ -95,7 +114,7 @@ Future<void> setupDependencies() async {
 
   // ── Places dependencies ───────────────────────────────────────────────────
   getIt.registerLazySingleton<PlacesDataSource>(
-    () => PlacesDataSourceImpl(),
+    () => PlacesDataSourceImpl(getIt<ApiClient>()),
   );
   getIt.registerLazySingleton<IPlacesRepository>(
     () => PlacesRepository(getIt<PlacesDataSource>()),
@@ -105,6 +124,18 @@ Future<void> setupDependencies() async {
   );
   getIt.registerLazySingleton<GetSuggestedPlacesUseCase>(
     () => GetSuggestedPlacesUseCase(getIt<IPlacesRepository>()),
+  );
+  getIt.registerLazySingleton<RemovePlaceFromTripUseCase>(
+    () => RemovePlaceFromTripUseCase(getIt<IPlacesRepository>()),
+  );
+  getIt.registerLazySingleton<SearchPlacesUseCase>(
+    () => SearchPlacesUseCase(getIt<IPlacesRepository>()),
+  );
+  getIt.registerLazySingleton<SearchPlacesFromGoogleUseCase>(
+    () => SearchPlacesFromGoogleUseCase(getIt<IPlacesRepository>()),
+  );
+  getIt.registerLazySingleton<GetPlaceDetailsUseCase>(
+    () => GetPlaceDetailsUseCase(getIt<IPlacesRepository>()),
   );
 
   // ── Profile dependencies ──────────────────────────────────────────────────
@@ -152,8 +183,11 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<DeleteTripUseCase>(
     () => DeleteTripUseCase(getIt<ITripsRepository>()),
   );
+  getIt.registerLazySingleton<GetTripByIdUseCase>(
+    () => GetTripByIdUseCase(getIt<ITripsRepository>()),
+  );
   getIt.registerLazySingleton<AddPlaceToTripUseCase>(
-    () => AddPlaceToTripUseCase(getIt<ITripsRepository>()),
+    () => AddPlaceToTripUseCase(getIt<IPlacesRepository>()),
   );
 
   // ── Weather dependencies ──────────────────────────────────────────────────
@@ -176,6 +210,18 @@ Future<void> setupDependencies() async {
   );
   getIt.registerLazySingleton<GetItineraryUseCase>(
     () => GetItineraryUseCase(getIt<IItineraryRepository>()),
+  );
+  getIt.registerLazySingleton<ModifyItineraryUseCase>(
+    () => ModifyItineraryUseCase(getIt<IItineraryRepository>()),
+  );
+  getIt.registerLazySingleton<AddActivityUseCase>(
+    () => AddActivityUseCase(getIt<IItineraryRepository>()),
+  );
+  getIt.registerLazySingleton<RemoveActivityUseCase>(
+    () => RemoveActivityUseCase(getIt<IItineraryRepository>()),
+  );
+  getIt.registerLazySingleton<ReoptimizeItineraryUseCase>(
+    () => ReoptimizeItineraryUseCase(getIt<IItineraryRepository>()),
   );
 
   // ── Packing dependencies ──────────────────────────────────────────────────
@@ -220,6 +266,9 @@ Future<void> setupDependencies() async {
   getIt.registerLazySingleton<DownloadInvoiceUseCase>(
     () => DownloadInvoiceUseCase(getIt<PaymentRepository>()),
   );
+  getIt.registerLazySingleton<GetOrderByIdUseCase>(
+    () => GetOrderByIdUseCase(getIt<PaymentRepository>()),
+  );
 
   // BLoCs
   getIt.registerFactory(() => AuthBloc(repository: getIt<AuthRepository>()));
@@ -232,26 +281,43 @@ Future<void> setupDependencies() async {
         getIt<GetPaymentMethodsUseCase>(),
         getIt<AddPaymentMethodUseCase>(),
       ));
-  getIt.registerFactory(() => AddPlacesBloc(
+    getIt.registerFactory(() => AddPlacesBloc(
         getIt<GetPlacesUseCase>(),
         getIt<GetSuggestedPlacesUseCase>(),
         getIt<AddPlaceToTripUseCase>(),
+        getIt<RemovePlaceFromTripUseCase>(),
+        getIt<SearchPlacesUseCase>(),
       ));
   getIt.registerFactory(() => TripPlanningBloc(
         getIt<CreateTripUseCase>(),
         getIt<UpdateTripUseCase>(),
+        getIt<GetTripByIdUseCase>(),
+        getIt<SearchPlacesFromGoogleUseCase>(),
+        getIt<GetPlaceDetailsUseCase>(),
       ));
   getIt.registerFactory(() =>
       ItineraryBloc(getIt<GetTripsUseCase>(), getIt<DeleteTripUseCase>()));
   getIt.registerFactory(
-      () => GenerateItineraryBloc(getIt<GenerateItineraryUseCase>()));
-  getIt.registerFactory(() => GetItineraryBloc(getIt<GetItineraryUseCase>()));
+      () => GenerateItineraryBloc(getIt<GenerateItineraryUseCase>(), getIt<ModifyItineraryUseCase>()));
+  getIt.registerFactory(() => GetItineraryBloc(
+        getIt<GetItineraryUseCase>(),
+        getIt<AddActivityUseCase>(),
+        getIt<RemoveActivityUseCase>(),
+        getIt<ReoptimizeItineraryUseCase>(),
+      ));
+  getIt.registerFactory(() => ItineraryMapBloc(
+        getIt<GetItineraryUseCase>(),
+        getIt<AddActivityUseCase>(),
+        getIt<RemoveActivityUseCase>(),
+        getIt<ReoptimizeItineraryUseCase>(),
+      ));
   getIt.registerFactory(() => PackingBloc(
         getIt<UpdateTransportsUseCase>(),
         getIt<GetPackingListUseCase>(),
         getIt<TogglePackingItemUseCase>(),
         getIt<AddPackingCategoryUseCase>(),
         getIt<AddPackingItemUseCase>(),
+        getIt<GetTripByIdUseCase>(),
       ));
   getIt.registerFactory(() => ProfileBloc(
         getIt<GetProfileUseCase>(),
@@ -267,4 +333,5 @@ Future<void> setupDependencies() async {
         createOrderUseCase: getIt<CreateOrderUseCase>(),
         verifyPaymentUseCase: getIt<VerifyPaymentUseCase>(),
       ));
+  getIt.registerFactory(() => PaymentOrderDetailBloc(getIt<GetOrderByIdUseCase>()));
 }

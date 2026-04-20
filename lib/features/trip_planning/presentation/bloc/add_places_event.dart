@@ -10,10 +10,16 @@ abstract class AddPlacesEvent extends Equatable {
 class LoadPlaces extends AddPlacesEvent {
   final String city;
   final String tripId;
-  const LoadPlaces({required this.city, required this.tripId});
+  final List<String>? initialSelectedPlaceIds;
+
+  const LoadPlaces({
+    required this.city,
+    required this.tripId,
+    this.initialSelectedPlaceIds,
+  });
 
   @override
-  List<Object?> get props => [city, tripId];
+  List<Object?> get props => [city, tripId, initialSelectedPlaceIds];
 }
 
 class TogglePlaceSelection extends AddPlacesEvent {
@@ -22,4 +28,12 @@ class TogglePlaceSelection extends AddPlacesEvent {
 
   @override
   List<Object?> get props => [placeId];
+}
+
+class SearchPlacesRequested extends AddPlacesEvent {
+  final String query;
+  const SearchPlacesRequested({required this.query});
+
+  @override
+  List<Object?> get props => [query];
 }

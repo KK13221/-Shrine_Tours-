@@ -3,9 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/primary_button.dart';
+import '../../../trip_planning/domain/usecases/get_trips_usecase.dart';
 import '../bloc/auth_bloc.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -19,7 +21,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
-  final _googleSignIn = GoogleSignIn();
+  final _googleSignIn = getIt<GoogleSignIn>();
 
   @override
   void dispose() {
@@ -30,6 +32,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     try {
+      await _googleSignIn.signOut();
       final googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return; // User cancelled
       
@@ -53,9 +56,26 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state is AuthAuthenticated) {
-          context.go('/itineraries');
+          // Check if user has trips to decide where to navigate
+          final tripsResult = await getIt<GetTripsUseCase>().call();
+          
+          if (mounted) {
+            tripsResult.fold(
+              (failure) {
+                // If failed to fetch trips, default to itineraries
+                context.go('/itineraries');
+              },
+              (trips) {
+                if (trips.isEmpty) {
+                  context.go('/plan-trip');
+                } else {
+                  context.go('/itineraries');
+                }
+              },
+            );
+          }
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message)),

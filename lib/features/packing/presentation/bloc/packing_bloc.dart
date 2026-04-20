@@ -8,6 +8,8 @@ import '../../domain/usecases/update_transports_usecase.dart';
 import '../../domain/usecases/toggle_packing_item_usecase.dart';
 import '../../domain/usecases/add_packing_category_usecase.dart';
 import '../../domain/usecases/add_packing_item_usecase.dart';
+import '../../../trip_planning/data/model/trip_detail_response.dart';
+import '../../../trip_planning/domain/usecases/get_trip_by_id_usecase.dart';
 
 // ─────────────────────────────────────────────
 // EVENTS
@@ -115,6 +117,7 @@ const _sentinel = Object();
 class PackingState extends Equatable {
   final List<String> selectedTransports;
   final List<PackingCategoryModel> categories;
+  final TripDetailResponse? tripDetails;
   final bool isLoading;
   final bool isSubmitting;
   final bool? submitSuccess;
@@ -125,6 +128,7 @@ class PackingState extends Equatable {
   const PackingState({
     this.selectedTransports = const [],
     this.categories = const [],
+    this.tripDetails,
     this.isLoading = false,
     this.isSubmitting = false,
     this.submitSuccess,
@@ -138,6 +142,7 @@ class PackingState extends Equatable {
   PackingState copyWith({
     List<String>? selectedTransports,
     List<PackingCategoryModel>? categories,
+    TripDetailResponse? tripDetails,
     bool? isLoading,
     bool? isSubmitting,
     Object? submitSuccess = _sentinel,
@@ -148,6 +153,7 @@ class PackingState extends Equatable {
     return PackingState(
       selectedTransports: selectedTransports ?? this.selectedTransports,
       categories: categories ?? this.categories,
+      tripDetails: tripDetails ?? this.tripDetails,
       isLoading: isLoading ?? this.isLoading,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       submitSuccess: submitSuccess == _sentinel
@@ -165,6 +171,7 @@ class PackingState extends Equatable {
   List<Object?> get props => [
         selectedTransports,
         categories,
+        tripDetails,
         isLoading,
         isSubmitting,
         submitSuccess,
@@ -184,6 +191,7 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
   final TogglePackingItemUseCase _togglePackingItemUseCase;
   final AddPackingCategoryUseCase _addPackingCategoryUseCase;
   final AddPackingItemUseCase _addPackingItemUseCase;
+  final GetTripByIdUseCase _getTripByIdUseCase;
 
   PackingBloc(
     this._updateTransportsUseCase,
@@ -191,6 +199,7 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
     this._togglePackingItemUseCase,
     this._addPackingCategoryUseCase,
     this._addPackingItemUseCase,
+    this._getTripByIdUseCase,
   ) : super(const PackingState()) {
     on<LoadPackingList>(_onLoad);
     on<SubmitTransportsRequested>(_onSubmitTransports);
@@ -216,6 +225,25 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
   }
 
   String _uniqueId() => DateTime.now().microsecondsSinceEpoch.toString();
+
+  List<PackingCategoryModel> _preserveExpansionState(
+    List<PackingCategoryModel> current,
+    List<PackingCategoryModel> next,
+  ) {
+    return next.map((newCat) {
+      final oldCat = current.firstWhere(
+        (c) => c.id == newCat.id,
+        orElse: () => current.firstWhere(
+          (c) => c.name == newCat.name,
+          orElse: () => newCat,
+        ),
+      );
+      // If we found a match, use its expansion state.
+      // If categories is empty (initial load), newCat defaults to isExpanded: false.
+      return newCat.copyWith(isExpanded: oldCat.isExpanded);
+    }).toList();
+  }
+
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -255,20 +283,42 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
       submitSuccess: null,
     ));
 
-    final result = await _getPackingListUseCase(event.tripId);
+    // Fetch packing list and trip details in parallel
+    final results = await Future.wait([
+      _getPackingListUseCase(event.tripId),
+      _getTripByIdUseCase(event.tripId),
+    ]);
 
-    result.fold(
+    final packingResult = results[0] as dynamic; // Either<Failure, PackingModel>
+    final tripResult = results[1] as dynamic; // Either<Failure, TripDetailResponse>
+
+    TripDetailResponse? fetchedTripDetails;
+    tripResult.fold(
+      (failure) {
+        // We don't want to fail the whole screen if only trip details fail
+        // But we could log it or set an error if it was critical
+      },
+      (trip) {
+        fetchedTripDetails = trip;
+      },
+    );
+
+    packingResult.fold(
       (failure) => emit(state.copyWith(
         isLoading: false,
         errorMessage: failure.message,
       )),
       (packingModel) {
-        final categories = packingModel.categories;
+        final categories = _preserveExpansionState(
+          state.categories,
+          packingModel.categories,
+        );
         final count = _recount(categories);
         emit(state.copyWith(
           isLoading: false,
           selectedTransports: packingModel.selectedTransports,
           categories: categories,
+          tripDetails: fetchedTripDetails,
           totalItems: count.total,
           checkedItems: count.checked,
           errorMessage: null,
@@ -331,16 +381,17 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
         ));
       },
       (packingModel) {
-        // Update with fresh data from API
-        final newCategories = packingModel.categories;
+        // Update with fresh data from API, preserving expansion state
+        final newCategories = _preserveExpansionState(
+          state.categories,
+          packingModel.categories,
+        );
         final count = _recount(newCategories);
         emit(state.copyWith(
           categories: newCategories,
           checkedItems: count.checked,
-          // Clear any previous error
           errorMessage: null,
-          // We can use a special flag or just the fact that it succeeded
-          submitSuccess: true, 
+          submitSuccess: true,
         ));
       },
     );
@@ -362,7 +413,7 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
     final name = event.itemName.trim();
     if (name.isEmpty) return;
 
-    emit(state.copyWith(isLoading: true, errorMessage: null));
+    emit(state.copyWith(errorMessage: null));
 
     final result = await _addPackingItemUseCase(
       tripId: event.tripId,
@@ -373,14 +424,15 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
 
     result.fold(
       (failure) => emit(state.copyWith(
-        isLoading: false,
         errorMessage: failure.message,
       )),
       (packingModel) {
-        final categories = packingModel.categories;
+        final categories = _preserveExpansionState(
+          state.categories,
+          packingModel.categories,
+        );
         final count = _recount(categories);
         emit(state.copyWith(
-          isLoading: false,
           categories: categories,
           totalItems: count.total,
           checkedItems: count.checked,
@@ -396,7 +448,7 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
     final name = event.categoryName.trim();
     if (name.isEmpty) return;
 
-    emit(state.copyWith(isLoading: true, errorMessage: null));
+    emit(state.copyWith(errorMessage: null));
 
     final result = await _addPackingCategoryUseCase(
       tripId: event.tripId,
@@ -406,14 +458,15 @@ class PackingBloc extends Bloc<PackingEvent, PackingState> {
 
     result.fold(
       (failure) => emit(state.copyWith(
-        isLoading: false,
         errorMessage: failure.message,
       )),
       (packingModel) {
-        final categories = packingModel.categories;
+        final categories = _preserveExpansionState(
+          state.categories,
+          packingModel.categories,
+        );
         final count = _recount(categories);
         emit(state.copyWith(
-          isLoading: false,
           categories: categories,
           totalItems: count.total,
           checkedItems: count.checked,

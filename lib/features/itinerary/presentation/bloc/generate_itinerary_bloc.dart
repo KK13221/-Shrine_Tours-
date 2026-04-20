@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/usecases/generate_itinerary_usecase.dart';
+import '../../domain/usecases/modify_itinerary_usecase.dart';
 import '../../data/model/itinerary_model.dart';
 
 // Events
@@ -14,15 +15,17 @@ class GenerateItineraryRequested extends GenerateItineraryEvent {
   final String tripId;
   final String city;
   final int days;
+  final String? itineraryId;
 
   const GenerateItineraryRequested({
     required this.tripId,
     required this.city,
     required this.days,
+    this.itineraryId,
   });
 
   @override
-  List<Object?> get props => [tripId, city, days];
+  List<Object?> get props => [tripId, city, days, itineraryId];
 }
 
 // States
@@ -58,8 +61,12 @@ class GenerateItineraryFailure extends GenerateItineraryState {
 // BLoC
 class GenerateItineraryBloc extends Bloc<GenerateItineraryEvent, GenerateItineraryState> {
   final GenerateItineraryUseCase _generateItineraryUseCase;
+  final ModifyItineraryUseCase _modifyItineraryUseCase;
 
-  GenerateItineraryBloc(this._generateItineraryUseCase) : super(GenerateItineraryInitial()) {
+  GenerateItineraryBloc(
+    this._generateItineraryUseCase,
+    this._modifyItineraryUseCase,
+  ) : super(GenerateItineraryInitial()) {
     on<GenerateItineraryRequested>(_onGenerateItineraryRequested);
   }
 
@@ -69,17 +76,37 @@ class GenerateItineraryBloc extends Bloc<GenerateItineraryEvent, GenerateItinera
   ) async {
     emit(GenerateItineraryLoading());
 
-    final result = await _generateItineraryUseCase(
-      GenerateItineraryParams(
-        tripId: event.tripId,
-        city: event.city,
-        days: event.days,
-      ),
-    );
+    if (event.itineraryId != null && event.itineraryId!.isNotEmpty) {
+      // Modify Flow
+      final result = await _modifyItineraryUseCase(
+        ModifyItineraryParams(
+          tripId: event.tripId,
+          city: event.city,
+          days: event.days,
+          itineraryId: event.itineraryId!,
+        ),
+      );
 
-    result.fold(
-      (failure) => emit(GenerateItineraryFailure(failure.message)),
-      (itinerary) => emit(GenerateItinerarySuccess(itinerary, 'Itinerary generated successfully')),
-    );
+      result.fold(
+        (failure) => emit(GenerateItineraryFailure(failure.message)),
+        (itinerary) => emit(GenerateItinerarySuccess(
+            itinerary, 'Itinerary updated successfully')),
+      );
+    } else {
+      // Creation Flow
+      final result = await _generateItineraryUseCase(
+        GenerateItineraryParams(
+          tripId: event.tripId,
+          city: event.city,
+          days: event.days,
+        ),
+      );
+
+      result.fold(
+        (failure) => emit(GenerateItineraryFailure(failure.message)),
+        (itinerary) => emit(GenerateItinerarySuccess(
+            itinerary, 'Itinerary generated successfully')),
+      );
+    }
   }
 }
