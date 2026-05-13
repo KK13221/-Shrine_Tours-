@@ -32,10 +32,10 @@ class SubscriptionModel extends Equatable {
   /// Returns the formatted price based on the plan name.
   String get priceLabel {
     final cleanPlan = plan.toLowerCase();
-    if (cleanPlan.contains('premium')) return '\$9.99';
-    if (cleanPlan.contains('enterprise')) return '\$19.99';
-    if (cleanPlan.contains('lifetime')) return '\$99.99';
-    return '\$0.00';
+    if (cleanPlan.contains('premium')) return 'INR 149.00';
+    if (cleanPlan.contains('enterprise')) return 'INR 499.00';
+    if (cleanPlan.contains('lifetime')) return 'INR 999.00';
+    return 'INR 0.00';
   }
 
   /// Returns the billing cycle label.

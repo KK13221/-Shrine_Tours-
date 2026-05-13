@@ -7,6 +7,7 @@ import '../../../../core/widgets/primary_button.dart';
 import '../bloc/add_places_bloc.dart';
 import '../bloc/trip_planning_bloc.dart' as trip_planning;
 import 'package:shrine_tours/features/itinerary/presentation/bloc/generate_itinerary_bloc.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 class AddPlacesScreen extends StatefulWidget {
   const AddPlacesScreen({super.key});
@@ -19,6 +20,8 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
   late final String _city;
   late final String _tripId;
   final TextEditingController _searchController = TextEditingController();
+  final SpeechToText _speechToText = SpeechToText();
+  bool _isListening = false;
 
   @override
   void dispose() {
@@ -29,6 +32,7 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
   @override
   void initState() {
     super.initState();
+    _initSpeech();
     final tripPlanningState =
         context.read<trip_planning.TripPlanningBloc>().state;
     _city = tripPlanningState.createdTrip?.city ??
@@ -53,6 +57,38 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
           tripId: _tripId,
           initialSelectedPlaceIds: alreadyAddedPlaceIds,
         ));
+  }
+
+  void _initSpeech() async {
+    await _speechToText.initialize();
+    setState(() {});
+  }
+
+  void _startListening() async {
+    await _speechToText.listen(
+      onResult: (result) {
+        setState(() {
+          _searchController.text = result.recognizedWords;
+          if (result.finalResult) {
+            _isListening = false;
+            // Trigger search
+            context.read<AddPlacesBloc>().add(
+                  SearchPlacesRequested(query: result.recognizedWords),
+                );
+          }
+        });
+      },
+    );
+    setState(() {
+      _isListening = true;
+    });
+  }
+
+  void _stopListening() async {
+    await _speechToText.stop();
+    setState(() {
+      _isListening = false;
+    });
   }
 
   @override
@@ -246,8 +282,22 @@ class _AddPlacesScreenState extends State<AddPlacesScreen> {
                                                       );
                                                 },
                                               )
-                                            : const Icon(Icons.mic,
-                                                color: AppColors.textMuted),
+                                            : IconButton(
+                                                icon: Icon(
+                                                  _isListening
+                                                      ? Icons.graphic_eq
+                                                      : Icons.mic,
+                                                  color: _isListening
+                                                      ? AppColors.primaryPink
+                                                      : AppColors.textMuted,
+                                                ),
+                                                onPressed: _isListening
+                                                    ? _stopListening
+                                                    : _startListening,
+                                                padding: EdgeInsets.zero,
+                                                constraints:
+                                                    const BoxConstraints(),
+                                              ),
                                         filled: true,
                                         fillColor: AppColors.backgroundGrey,
                                         border: OutlineInputBorder(

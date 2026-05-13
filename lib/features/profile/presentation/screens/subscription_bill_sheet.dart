@@ -14,7 +14,8 @@ enum _BillingStatus { paid, pending, failed }
 // _BillingStatus parsing logic if needed
 _BillingStatus _parseStatus(String status) {
   if (status.toUpperCase() == 'CREATED') return _BillingStatus.pending;
-  if (status.toUpperCase() == 'PAID' || status.toUpperCase() == 'SUCCESS') return _BillingStatus.paid;
+  if (status.toUpperCase() == 'PAID' || status.toUpperCase() == 'SUCCESS')
+    return _BillingStatus.paid;
   return _BillingStatus.failed;
 }
 
@@ -91,10 +92,10 @@ class _SubscriptionBillsSheetBodyState
                             // ── Plan card ───────────────────────────────────────────
                             _PremiumPlanCard(
                               name: sub?.displayName ?? 'Free Plan',
-                              // description: sub != null
+                              // description: sub != nFreeull
                               //     ? sub.features.join(' • ')
                               //     : 'Explore shrines with basic features',
-                              priceLabel: sub?.priceLabel ?? '\$0.00',
+                              priceLabel: sub?.priceLabel ?? 'INR 0.00',
                               billingCycle: sub?.billingCycle ?? '/month',
                               nextBilling:
                                   sub != null && sub.renewsAt.isNotEmpty
@@ -131,7 +132,6 @@ class _SubscriptionBillsSheetBodyState
                           ],
                         ),
                       ),
-
               ),
             ],
           ),
@@ -377,7 +377,7 @@ class _BillingHistoryItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '${record.currency.toUpperCase() == 'INR' ? '₹' : record.currency} ${(record.amount / 100).toStringAsFixed(2)}',
+                  '${record.currency.toUpperCase() == 'INR' ? 'INR' : record.currency} ${(record.amount / 100).toStringAsFixed(2)}',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

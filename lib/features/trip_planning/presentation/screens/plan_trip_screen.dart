@@ -19,11 +19,13 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
   String _selectedPurpose = '';
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _isModifying = false;
 
   @override
   void initState() {
     super.initState();
     final state = context.read<TripPlanningBloc>().state;
+    _isModifying = state.editingTripId != null;
     _cityController.text = state.destination;
     _selectedTraveller = state.travellerType;
     _selectedPurpose = state.purpose;
@@ -155,6 +157,7 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _cityController,
+                      readOnly: _isModifying,
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
                         hintText: 'Enter city name (e.g., Bhopal)',
@@ -190,8 +193,10 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
                         final isSelected =
                             _selectedTraveller == option['value'];
                         return GestureDetector(
-                          onTap: () => setState(
-                              () => _selectedTraveller = option['value']!),
+                          onTap: _isModifying
+                              ? null
+                              : () => setState(
+                                  () => _selectedTraveller = option['value']!),
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -242,8 +247,10 @@ class _PlanTripScreenState extends State<PlanTripScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: GestureDetector(
-                          onTap: () => setState(
-                              () => _selectedPurpose = option['value']!),
+                          onTap: _isModifying
+                              ? null
+                              : () => setState(
+                                  () => _selectedPurpose = option['value']!),
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(

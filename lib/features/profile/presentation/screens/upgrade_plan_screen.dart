@@ -173,7 +173,7 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                               Text(
                                 sub != null && sub.plan.isNotEmpty
                                     ? '${sub.displayName} - ${sub.priceLabel}${sub.billingCycle}'
-                                    : 'Free Plan - \$0.00',
+                                    : 'Free Plan - INR 0.00',
                                 style: GoogleFonts.inter(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
@@ -197,15 +197,20 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                         _PlanCard(
                           title: 'Free',
                           subtitle: 'Basic access',
-                          price: '\INR 0.00',
+                          price: 'INR 0.00',
                           cycle: '/month',
                           isPopular: false,
                           isActive: !isPremium,
                           features: const [
-                            'Create up to 2 Trips',
-                            'Unlimited manual modifications',
+                            // 'Create up to 2 Trips',
+                            // 'Unlimited manual modifications',
+                            // 'AI Optimization (1 time limit)',
+                            // 'Basic map routes',
+                            "Create up to 2 Trips",
+                            "You can freely edit your itinerary yourself",
+                            "Manual suggests: no AI involved\njust user-driven changes",
+                            "Slight hidden message: you're doing the work.",
                             'AI Optimization (1 time limit)',
-                            'Basic map routes',
                           ],
                           onPressed: () {}, // No action needed for free
                         ),
@@ -215,16 +220,15 @@ class _UpgradePlanScreenState extends State<UpgradePlanScreen> {
                         _PlanCard(
                           title: 'Premium',
                           subtitle: 'For enthusiasts',
-                          price: '\INR 925',
+                          price: 'INR 149',
                           cycle: '/month',
                           isPopular: true,
                           isActive: isPremium,
                           features: const [
-                            'Create up to 10 Trips',
-                            'Unlimited AI optimizations',
                             'Unlimited edits on all itineraries',
-                            'Advanced analytics, Help & Chat support',
-                            'Full Access to Packing List.'
+                            'You can edit as much as you want\napplies to all trips',
+                            "Combinedh with AI feature above\nimplies AI + Manual Both",
+                            'Help & Chat support.'
                           ],
                           onPressed: () {
                             context.read<PaymentBloc>().add(

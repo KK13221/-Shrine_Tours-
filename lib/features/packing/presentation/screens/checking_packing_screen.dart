@@ -25,10 +25,13 @@ class CheckingPackingScreen extends StatefulWidget {
 }
 
 class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
-  // Tracks which category currently has the inline \"add item\" text field open.
+  // Tracks which category currently has the inline "add item" text field open.
   int? _addingItemToCategoryIndex;
 
-  // Tracks whether the \"add category\" text field row is visible at the bottom.
+  // Resolved tripId across both creation and modification flows
+  late final String _stableTripId;
+
+  // Tracks whether the "add category" text field row is visible at the bottom.
   bool _addingCategory = false;
 
   final TextEditingController _addItemController = TextEditingController();
@@ -41,14 +44,15 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
   void initState() {
     super.initState();
     final planState = context.read<TripPlanningBloc>().state;
-    final effectiveTripId = widget.tripId?.isNotEmpty == true
+    _stableTripId = widget.tripId?.isNotEmpty == true
         ? widget.tripId!
         : (planState.createdTrip?.id ?? '').isNotEmpty
             ? planState.createdTrip!.id
             : (planState.selectedTripDetails?.id ?? '').isNotEmpty
                 ? planState.selectedTripDetails!.id
                 : planState.editingTripId ?? '';
-    context.read<PackingBloc>().add(LoadPackingList(effectiveTripId));
+
+    context.read<PackingBloc>().add(LoadPackingList(_stableTripId));
   }
 
   @override
@@ -154,79 +158,36 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final planState = context.watch<TripPlanningBloc>().state;
-    // Resolve tripId across both creation and modification flows
-    final effectiveTripId = widget.tripId?.isNotEmpty == true
-        ? widget.tripId!
-        : (planState.createdTrip?.id ?? '').isNotEmpty
-            ? planState.createdTrip!.id
-            : (planState.selectedTripDetails?.id ?? '').isNotEmpty
-                ? planState.selectedTripDetails!.id
-                : planState.editingTripId ?? '';
-
-    return BlocListener<PackingBloc, PackingState>(
-      listener: (context, state) {
-        if (state.submitSuccess == true) {
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   SnackBar(
-          //     content: Text(
-          //       'Packing list updated successfully',
-          //       style: GoogleFonts.inter(color: Colors.white),
-          //     ),
-          //     backgroundColor: AppColors.primaryPink,
-          //     behavior: SnackBarBehavior.floating,
-          //     duration: const Duration(seconds: 2),
-          //     shape: RoundedRectangleBorder(
-          //         borderRadius: BorderRadius.circular(16)),
-          //     margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          //   ),
-          // );
-        } else if (state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                state.errorMessage!,
-                style: GoogleFonts.inter(color: Colors.white),
-              ),
-              backgroundColor: Colors.red.shade600,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 2),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            ),
-          );
-        }
-      },
-      child: BlocBuilder<PackingBloc, PackingState>(
+    if (widget.isFromTabs) {
+      return BlocBuilder<PackingBloc, PackingState>(
         builder: (context, state) {
-          final content = _buildContent(context, state, effectiveTripId);
+          return _buildContent(context, state, _stableTripId);
+        },
+      );
+    }
 
-          if (widget.isFromTabs) {
-            return content;
-          }
-
-          return Scaffold(
-            backgroundColor: Colors.white,
-            appBar: AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              leading: IconButton(
-                icon: const Icon(Icons.chevron_left,
-                    size: 28, color: AppColors.textDark),
-                onPressed: () => context.pop(),
-              ),
-              title: Text(
-                'Checking My Packing',
-                style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark),
-              ),
-              centerTitle: true,
-            ),
-            body: content,
-          );
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.chevron_left,
+              size: 28, color: AppColors.textDark),
+          onPressed: () => context.pop(),
+        ),
+        title: Text(
+          'Checking My Packing',
+          style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textDark),
+        ),
+        centerTitle: true,
+      ),
+      body: BlocBuilder<PackingBloc, PackingState>(
+        builder: (context, state) {
+          return _buildContent(context, state, _stableTripId);
         },
       ),
     );
@@ -361,13 +322,13 @@ class _CheckingPackingScreenState extends State<CheckingPackingScreen> {
         ),
         const SizedBox(height: 20),
 
-        if (state.isLoading)
+        if (state.isLoading && state.categories.isEmpty)
           const Center(
               child: Padding(
                   padding: EdgeInsets.all(40.0),
                   child:
                       CircularProgressIndicator(color: AppColors.primaryPink)))
-        else if (state.errorMessage != null)
+        else if (state.errorMessage != null && state.categories.isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),

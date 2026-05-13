@@ -78,7 +78,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          '${order.currency.toUpperCase() == 'INR' ? '₹' : order.currency} ${(order.amount / 100).toStringAsFixed(2)}',
+                          '${order.currency.toUpperCase() == 'INR' ? 'INR' : order.currency} ${(order.amount / 100).toStringAsFixed(2)}',
                           style: GoogleFonts.inter(
                             fontSize: 32,
                             fontWeight: FontWeight.w800,

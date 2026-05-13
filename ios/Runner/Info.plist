@@ -33,6 +33,10 @@
 		<key>UIMainStoryboardFile</key>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>We need your location to show nearby places</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>We need speech recognition to allow searching places by voice</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>We need microphone access for voice search</string>
 		<string>Main</string>
 		<key>UISupportedInterfaceOrientations</key>
 		<array>

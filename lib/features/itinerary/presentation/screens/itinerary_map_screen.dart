@@ -42,6 +42,7 @@ class ItineraryMapScreen extends StatefulWidget {
 class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
   GoogleMapController? _mapController;
   LatLng? _userLocation;
+  LatLng? _cityLocation;
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
 
@@ -50,8 +51,8 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _costController = TextEditingController();
-  final TextEditingController _durationController =
-      TextEditingController(text: '1 hr');
+  final TextEditingController _durationHourController = TextEditingController();
+  final TextEditingController _durationMinController = TextEditingController();
 
   // Ordered place list for current day (used for Open in Maps)
   List<Place> _currentDayPlaces = [];
@@ -61,7 +62,8 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
     _titleController.dispose();
     _timeController.dispose();
     _costController.dispose();
-    _durationController.dispose();
+    _durationHourController.dispose();
+    _durationMinController.dispose();
     _mapController?.dispose();
     super.dispose();
   }
@@ -71,6 +73,14 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
     super.initState();
     _loadUserLocation();
     _fetchItinerary();
+
+    // Fetch destination city location for default map centering
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final planState = context.read<TripPlanningBloc>().state;
+      if (planState.destination.isNotEmpty) {
+        _fetchCityLocation(planState.destination);
+      }
+    });
   }
 
   Future<void> _loadUserLocation() async {
@@ -122,6 +132,41 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
             .add(FetchMapItineraryRequested(itineraryId));
       }
     });
+  }
+
+  Future<void> _fetchCityLocation(String cityName) async {
+    try {
+      final query = Uri.encodeComponent(cityName);
+      final url =
+          'https://maps.googleapis.com/maps/api/geocode/json?address=$query&key=${ApiConstants.googleApiKey}';
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'OK' && data['results'].isNotEmpty) {
+          final location = data['results'][0]['geometry']['location'];
+          final lat = location['lat'] as double;
+          final lng = location['lng'] as double;
+
+          if (mounted) {
+            setState(() {
+              _cityLocation = LatLng(lat, lng);
+            });
+
+            // If we have no places yet, move camera to the city
+            if (_markers.isEmpty ||
+                (_markers.length == 1 &&
+                    _markers.any((m) => m.markerId.value == 'start_location'))) {
+              _mapController?.animateCamera(
+                CameraUpdate.newLatLngZoom(_cityLocation!, 12),
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error geocoding city: $e');
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -234,6 +279,10 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
       } else if (allPoints.length == 1) {
         await _mapController!
             .animateCamera(CameraUpdate.newLatLngZoom(allPoints.first, 14));
+      } else if (_cityLocation != null) {
+        // Fallback: no points to show (empty itinerary) — center on city
+        await _mapController!
+            .animateCamera(CameraUpdate.newLatLngZoom(_cityLocation!, 12));
       }
     }
   }
@@ -680,8 +729,8 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
               }
             },
             initialCameraPosition: CameraPosition(
-              target: _userLocation ?? const LatLng(22.7196, 75.8577),
-              zoom: 13,
+              target: _cityLocation ?? _userLocation ?? const LatLng(22.7196, 75.8577),
+              zoom: 12,
             ),
             markers: _markers,
             polylines: _polylines,
@@ -725,6 +774,13 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
       final bounds = _calculateBounds(allPoints);
       await _mapController!
           .animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+    } else if (allPoints.length == 1) {
+      await _mapController!
+          .animateCamera(CameraUpdate.newLatLngZoom(allPoints.first, 14));
+    } else if (_cityLocation != null) {
+      // Default to city center if no places
+      await _mapController!
+          .animateCamera(CameraUpdate.newLatLngZoom(_cityLocation!, 12));
     }
   }
 
@@ -830,16 +886,24 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
                                 if (_isAddingActivity) {
                                   if (_titleController.text.isNotEmpty &&
                                       _timeController.text.isNotEmpty) {
+                                    final hr =
+                                        _durationHourController.text.trim();
+                                    final min =
+                                        _durationMinController.text.trim();
+
+                                    List<String> parts = [];
+                                    if (hr.isNotEmpty) parts.add("$hr Hour");
+                                    if (min.isNotEmpty) parts.add("$min Min");
+
+                                    final duration = parts.join(' ');
                                     context.read<ItineraryMapBloc>().add(
                                           AddMapActivityRequested(
                                             itineraryId: state.itinerary.id,
                                             dayNumber: state.selectedDay,
                                             time: _timeController.text,
                                             title: _titleController.text,
-                                            cost: double.tryParse(
-                                                    _costController.text) ??
-                                                0.0,
-                                            duration: _durationController.text,
+                                            cost: 0.0,
+                                            duration: duration,
                                             icon: 'explore',
                                             placeId: '',
                                           ),
@@ -1129,6 +1193,35 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
     );
   }
 
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+                primary: AppColors.primaryPink,
+                onPrimary: Colors.white,
+                onSurface: AppColors.textDark,
+                secondary: AppColors.primaryPink,
+                onSecondary: Colors.white),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      if (!mounted) return;
+      setState(() {
+        final hour = picked.hourOfPeriod == 0 ? 12 : picked.hourOfPeriod;
+        final minute = picked.minute.toString().padLeft(2, '0');
+        final period = picked.period == DayPeriod.am ? 'AM' : 'PM';
+        _timeController.text = "$hour:$minute $period";
+      });
+    }
+  }
+
   Widget _buildAddActivityForm() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1142,14 +1235,20 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
           Row(
             children: [
               Expanded(
-                flex: 2,
-                child: TextField(
-                  controller: _timeController,
-                  decoration: const InputDecoration(
-                    hintText: 'Time (10:00)',
-                    border: InputBorder.none,
+                flex: 3,
+                child: GestureDetector(
+                  onTap: () => _selectTime(context),
+                  child: AbsorbPointer(
+                    child: TextField(
+                      controller: _timeController,
+                      decoration: const InputDecoration(
+                        hintText: 'Time (Select)',
+                        border: InputBorder.none,
+                        suffixIcon: Icon(Icons.access_time, size: 18),
+                      ),
+                      style: GoogleFonts.inter(fontSize: 14),
+                    ),
                   ),
-                  style: GoogleFonts.inter(fontSize: 14),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1170,27 +1269,66 @@ class _ItineraryMapScreenState extends State<ItineraryMapScreen> {
           const Divider(),
           Row(
             children: [
+              // Expanded(
+              //   child: Container(
+              //     padding: const EdgeInsets.symmetric(horizontal: 8),
+              //     decoration: BoxDecoration(
+              //       color: Colors.white,
+              //       borderRadius: BorderRadius.circular(8),
+              //       border: Border.all(color: Colors.grey[200]!),
+              //     ),
+              //     child: TextField(
+              //       controller: _durationValController,
+              //       keyboardType: TextInputType.number,
+              //       decoration: const InputDecoration(
+              //         hintText: '1',
+              //         border: InputBorder.none,
+              //       ),
+              //       textAlign: TextAlign.center,
+              //       style: GoogleFonts.inter(fontSize: 14),
+              //     ),
+              //   ),
+              // ),
+              // const SizedBox(width: 8),
               Expanded(
-                child: TextField(
-                  controller: _costController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    hintText: 'Cost (Optional)',
-                    prefixText: '₹ ',
-                    border: InputBorder.none,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
                   ),
-                  style: GoogleFonts.inter(fontSize: 14),
+                  child: TextField(
+                    controller: _durationHourController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'Hour',
+                      border: InputBorder.none,
+                    ),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 14),
+                  ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               Expanded(
-                child: TextField(
-                  controller: _durationController,
-                  decoration: const InputDecoration(
-                    hintText: 'Duration (1 hr)',
-                    border: InputBorder.none,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[200]!),
                   ),
-                  style: GoogleFonts.inter(fontSize: 14),
+                  child: TextField(
+                    controller: _durationMinController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      hintText: 'Min',
+                      border: InputBorder.none,
+                    ),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(fontSize: 14),
+                  ),
                 ),
               ),
             ],

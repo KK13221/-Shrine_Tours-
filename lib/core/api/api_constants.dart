@@ -69,12 +69,12 @@ class ApiConstants {
   static const String getInvoice = '/payments/orders/'; // + {id}/invoice
 
   // Razorpay Keys (User will fill these)
-  static const String razorpayKeyId = 'razorpay_key';
-  static const String razorpayKeySecret = 'razorpay_secret';
+  static const String razorpayKeyId = 'rzp_test_SXQRoyl0PBkiDH';
+  static const String razorpayKeySecret = 'TXRf4e8Xyyes7Cj7m65hSIyA';
 
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
 
-  static const String googleApiKey = 'your_api_key';
+  static const String googleApiKey = 'AIzaSyAjEqTpg277Jx1q9-_HbrwWSt_qb--u3eY';
 }

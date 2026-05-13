@@ -50,7 +50,7 @@ class HelpSupportScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Need help? Our support team is here for you 24/7',
+                'Need a hand?\nOur support team is ready to help.\nWe typically respond within 5 minutes.\nSupport working hours: Mon – Sat | 10 AM to 7 PM',
                 style:
                     GoogleFonts.inter(fontSize: 14, color: AppColors.textDark),
               ),
@@ -63,7 +63,8 @@ class HelpSupportScreen extends StatelessWidget {
               iconBgColor: const Color(0xFFE3F2FD),
               iconColor: const Color(0xFF1565C0),
               title: 'Email Support',
-              subtitle: 'shrine.tours1@gmail.com',
+              subtitle: '',
+              isChatCard: true,
               onTap: () {
                 final isPremium =
                     context.read<ProfileBloc>().state.profile.premium;
@@ -76,7 +77,7 @@ class HelpSupportScreen extends StatelessWidget {
                   );
                   return;
                 }
-                // Handle email (e.g. launch mailto)
+                _launchEmail();
               },
             ),
             const SizedBox(height: 12),
@@ -87,8 +88,8 @@ class HelpSupportScreen extends StatelessWidget {
               iconBgColor: const Color(0xFFE8F5E9),
               iconColor: const Color(0xFF2E7D32),
               title: 'Live Chat',
-              subtitle:
-                  'Usually replies in minutes and available from 10 am to 7 pm Everyday',
+              subtitle: '',
+              isChatCard: true,
               onTap: () {
                 final isPremium =
                     context.read<ProfileBloc>().state.profile.premium;
@@ -121,6 +122,30 @@ class HelpSupportScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _launchEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'shrine.tours1@gmail.com',
+      query: _encodeQueryParameters(<String, String>{
+        'subject': 'Support Inquiry',
+        'body': 'Hello, I need help with...',
+      }),
+    );
+
+    if (await canLaunchUrl(emailLaunchUri)) {
+      await launchUrl(emailLaunchUri);
+    } else {
+      debugPrint('Could not launch email client');
+    }
+  }
+
+  String? _encodeQueryParameters(Map<String, String> params) {
+    return params.entries
+        .map((MapEntry<String, String> e) =>
+            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+  }
+
   Future<void> openWhatsApp() async {
     const String phoneNumber = "+919986474527"; // include country code
     const String message = "Hello, I need help with the app";
@@ -135,14 +160,14 @@ class HelpSupportScreen extends StatelessWidget {
     }
   }
 
-  Widget _supportCard({
-    required IconData icon,
-    required Color iconBgColor,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
+  Widget _supportCard(
+      {required IconData icon,
+      required Color iconBgColor,
+      required Color iconColor,
+      required String title,
+      required String subtitle,
+      required VoidCallback onTap,
+      required bool isChatCard}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -176,11 +201,13 @@ class HelpSupportScreen extends StatelessWidget {
                         color: AppColors.textDark),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: AppColors.textMuted),
-                  ),
+                  isChatCard
+                      ? const SizedBox.shrink()
+                      : Text(
+                          subtitle,
+                          style: GoogleFonts.inter(
+                              fontSize: 13, color: AppColors.textMuted),
+                        ),
                 ],
               ),
             ),
